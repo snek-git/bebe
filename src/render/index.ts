@@ -7,7 +7,7 @@ import {
 } from './entities';
 import { renderVisionCones } from './visioncones';
 import { renderUI, renderToolWheel, renderDetectionOverlay } from './ui';
-import { renderTitle, renderGameOver, renderWinScreen } from './screens';
+import { renderTitle, renderGameOver, renderWinScreen, renderPauseScreen } from './screens';
 import type { Game } from '../types';
 
 export function render(ctx: CanvasRenderingContext2D, game: Game): void {
@@ -41,4 +41,5 @@ export function render(ctx: CanvasRenderingContext2D, game: Game): void {
 
   if (game.state === 'gameover') renderGameOver(ctx, game);
   if (game.state === 'win') renderWinScreen(ctx, game);
+  if (game.state === 'paused') renderPauseScreen(ctx);
 }

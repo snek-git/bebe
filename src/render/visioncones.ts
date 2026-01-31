@@ -5,6 +5,12 @@ import type { Game } from '../types';
 
 const RAY_COUNT = 48;
 
+/** Deterministic wobble from baby position + ray index */
+function wobble(bx: number, by: number, i: number): number {
+  const seed = Math.round(bx * 73 + by * 137 + i * 31) & 0x7fffffff;
+  return (Math.sin(seed * 0.0173) * 43758.5453 % 1) * 3 - 1.5;
+}
+
 export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): void {
   const cam = game.camera;
 
@@ -31,7 +37,10 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
           break;
         }
       }
-      pts.push({ x: b.x + cs * hitD, y: b.y + sn * hitD });
+      // Add slight wobble to ray endpoints for hand-drawn feel
+      const wx = wobble(b.x, b.y, i * 2);
+      const wy = wobble(b.x, b.y, i * 2 + 1);
+      pts.push({ x: b.x + cs * hitD + wx, y: b.y + sn * hitD + wy });
     }
 
     const bx = b.x - cam.x, by = b.y - cam.y;
@@ -50,6 +59,7 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
     else if (crawlerSeeHiding) ctx.strokeStyle = 'rgba(244,114,182,0.3)';
     else ctx.strokeStyle = b.type === 'toddler' ? 'rgba(220,38,38,0.15)' : (b.type === 'stawler' ? 'rgba(236,72,153,0.15)' : 'rgba(251,191,36,0.12)');
     ctx.lineWidth = 1;
+    ctx.lineJoin = 'round';
 
     ctx.beginPath();
     ctx.moveTo(bx, by);

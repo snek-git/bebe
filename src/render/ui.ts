@@ -3,51 +3,38 @@ import {
   TOOL_TYPES,
 } from '../config';
 import { mouseScreen } from '../input';
-import { drawToolShape } from './shapes';
+import { drawToolShape, drawCheeseShape } from './shapes';
+import { SK, sketchyRect, sketchyLine, crayonCircle, crayonText } from './sketchy';
 import type { Game } from '../types';
 
 export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
   const time = game.time;
 
-  // Detection bar
+  // Crying baby detection indicator
   const det = game.detection;
-  const detPct = det / 100;
-  const bw = 160, bh = 12, bx = VIEW_W / 2 - bw / 2, by = 10;
+  const babyIndex = Math.min(5, Math.floor(det / 20));
+  const fillFraction = (det % 20) / 20;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
-  ctx.fillStyle = '#374151'; ctx.fillRect(bx, by, bw, bh);
+  const faceSize = 26, faceGap = 6;
+  const totalW = 5 * faceSize + 4 * faceGap;
+  const startX = VIEW_W / 2 - totalW / 2;
+  const baseY = 20;
 
-  if (det > 0) {
-    const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    grad.addColorStop(0, '#fbbf24'); grad.addColorStop(1, '#ef4444');
-    ctx.fillStyle = grad;
-    ctx.fillRect(bx, by, bw * detPct, bh);
+  for (let i = 0; i < 5; i++) {
+    const fx = startX + i * (faceSize + faceGap) + faceSize / 2;
 
-    // Subtle bright leading edge
-    const edgeX = bx + bw * detPct;
-    ctx.fillStyle = `rgba(255,255,255,${0.25 + Math.sin(time * 6) * 0.15})`;
-    ctx.fillRect(edgeX - 1, by, 1, bh);
-  }
+    // Bounce offset from fill animation
+    const anim = game.milkFillAnim[i];
+    const bounceT = anim / 0.3;
+    const yOff = bounceT > 0 ? -10 * Math.sin(bounceT * Math.PI) * bounceT : 0;
+    const fy = baseY + yOff;
 
-  // Border — subtle color shift at high detection
-  if (det > 70) {
-    ctx.strokeStyle = 'rgba(239,68,68,0.7)';
-    ctx.lineWidth = 1.5;
-  } else {
-    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1;
-  }
-  ctx.strokeRect(bx, by, bw, bh);
+    let fill = 0;
+    if (i < babyIndex) fill = 1;
+    else if (i === babyIndex) fill = fillFraction;
 
-  // Label + percentage
-  ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  if (det > 0) {
-    ctx.fillStyle = det > 60 ? '#ef4444' : det > 30 ? '#fbbf24' : '#e5e7eb';
-    ctx.fillText(Math.round(det) + '%', VIEW_W / 2, by + bh + 11);
-  } else {
-    ctx.fillStyle = '#6b7280';
-    ctx.fillText('DETECTION', VIEW_W / 2, by + bh + 11);
+    drawCryingBaby(ctx, fx, fy, faceSize / 2, fill, bounceT > 0, time);
   }
 
   // === HOTBAR (bottom center) ===
@@ -56,94 +43,112 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   // Key cards (top-left)
   if (p.keys.length > 0) {
     let keyX = 12;
-    ctx.font = 'bold 9px monospace'; ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 11px monospace'; ctx.textBaseline = 'alphabetic';
     const colors: Record<string, string> = { keyA: '#ef4444', keyB: '#3b82f6', keyC: '#22c55e' };
     for (const k of p.keys) {
       ctx.fillStyle = colors[k] || '#facc15';
-      ctx.fillRect(keyX, 22, 20, 10);
+      ctx.fillRect(keyX, 22, 24, 13);
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
-      ctx.fillText(k.replace('key', ''), keyX + 10, 31);
-      keyX += 24;
+      ctx.fillText(k.replace('key', ''), keyX + 12, 33);
+      keyX += 28;
     }
   }
 
   // Gear icons (top-left, below keys)
   if (p.gear.length > 0) {
-    ctx.textAlign = 'left'; ctx.font = '9px monospace';
+    ctx.textAlign = 'left'; ctx.font = 'bold 11px monospace';
     let gx = 12;
     for (const g of p.gear) {
       if (g === 'sneakers') {
         ctx.fillStyle = '#4ade80';
-        ctx.fillText('SNEAK', gx, 46);
+        ctx.fillText('SNEAK', gx, 50);
       } else {
         ctx.fillStyle = '#a855f7';
-        ctx.fillText('SHADE', gx, 46);
+        ctx.fillText('SHADE', gx, 50);
       }
-      gx += 50;
+      gx += 56;
     }
   }
 
-  // Peekaboo stamina bar
-  const pbw = 80, pbh = 8, pbx = VIEW_W - pbw - 12, pby = 30;
-  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
-  ctx.fillStyle = '#1e1e2e'; ctx.fillRect(pbx, pby, pbw, pbh);
-  const stPct = p.stamina / STAMINA_MAX;
-  ctx.fillStyle = p.staminaExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
-  ctx.fillRect(pbx, pby, pbw * stPct, pbh);
-  ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1; ctx.strokeRect(pbx, pby, pbw, pbh);
+  // === BOTTOM-LEFT STATUS PANEL (stamina bar + state label) ===
+  const pbw = 96, pbh = 10;
+  const pbx = 12, pby = VIEW_H - 34;
+
+  // Determine current state label & color
+  let stateLabel: string;
+  let stateColor: string;
   const showPulse = p.hiding && game.peekabooPulseTimer > 0;
-  if (!showPulse) {
-    ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = p.staminaExhausted ? '#ef4444' : '#9ca3af';
-    ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
-    ctx.textAlign = 'right';
+
+  if (p.staminaExhausted) {
+    stateLabel = 'exhausted';
+    stateColor = '#ef4444';
+  } else if (p.hiding) {
+    stateLabel = 'peekaboo';
+    stateColor = '#4ade80';
+  } else if (p.sprinting && (p.vx || p.vy)) {
+    stateLabel = 'sprint';
+    stateColor = '#60a5fa';
+  } else if (p.searching) {
+    stateLabel = 'searching';
+    stateColor = '#a78bfa';
+  } else if (p.looting) {
+    stateLabel = 'looting';
+    stateColor = '#fbbf24';
+  } else {
+    stateLabel = 'idle';
+    stateColor = '#4ade80';
   }
 
-  // Status text
-  ctx.textAlign = 'right'; ctx.font = '10px monospace';
+  // State label above bar
+  const stPct = p.stamina / STAMINA_MAX;
   if (showPulse) {
     const t = Math.max(0, Math.min(1, game.peekabooPulseTimer / 2.0));
     const wave = (Math.sin(time * 10) + 1) / 2;
-    const size = 9 + Math.round(wave * 2);
+    const size = 11 + Math.round(wave * 2);
     ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
-    const stPct2 = p.stamina / STAMINA_MAX;
     let r = 74, g = 222, b = 128;
     if (p.staminaExhausted) {
       r = 239; g = 68; b = 68;
-    } else if (stPct2 < 0.3) {
-      const k = Math.min(1, (0.3 - stPct2) / 0.3);
+    } else if (stPct < 0.3) {
+      const k = Math.min(1, (0.3 - stPct) / 0.3);
       r = Math.round(74 + (239 - 74) * k);
       g = Math.round(222 + (68 - 222) * k);
       b = Math.round(128 + (68 - 128) * k);
     }
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-    ctx.font = `bold ${size}px monospace`;
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
     ctx.shadowBlur = 4 + wave * 4;
-    ctx.textAlign = 'center';
-    ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
+    crayonText(ctx, stateLabel, pbx + pbw / 2, pby - 3, {
+      fill: `rgb(${r}, ${g}, ${b})`,
+      font: `bold ${size}px monospace`,
+      jitterAmt: 0.3, passes: 2,
+    });
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
-    ctx.textAlign = 'right';
-  } else if (p.looting) {
-    ctx.fillStyle = '#fbbf24'; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
-  } else if (p.searching) {
-    ctx.fillStyle = '#a78bfa'; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
-  } else if (p.sprinting) {
-    ctx.fillStyle = '#86efac'; ctx.fillText('SPRINT', VIEW_W - 12, 22);
+  } else {
+    crayonText(ctx, stateLabel, pbx + pbw / 2, pby - 3, {
+      fill: stateColor,
+      font: 'bold 11px monospace', jitterAmt: 0.3, passes: 2,
+    });
   }
 
+  // Stamina bar
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
+  ctx.fillStyle = SK.cardFill; ctx.fillRect(pbx, pby, pbw, pbh);
+  ctx.fillStyle = p.staminaExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
+  ctx.fillRect(pbx, pby, pbw * stPct, pbh);
+  sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.5, grain: false });
+
   // Controls help
-  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '9px monospace';
-  ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
+  ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '10px monospace';
+  ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool | R: Restart', VIEW_W / 2, VIEW_H - 8);
 
   // Prize collected message (above hotbar)
   if (p.loot >= TOTAL_LOOT) {
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#4ade80'; ctx.font = 'bold 11px monospace';
     ctx.globalAlpha = Math.sin(time * 4) * 0.3 + 0.7;
-    ctx.fillText('GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 62);
+    crayonText(ctx, 'GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 62, {
+      fill: SK.highlight, font: 'bold 13px monospace', jitterAmt: 0.3, passes: 2,
+    });
     ctx.globalAlpha = 1;
   }
 
@@ -156,8 +161,143 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   renderMinimap(ctx, game);
 }
 
-const SLOT_SIZE = 34;
-const SLOT_GAP = 3;
+function drawCryingBaby(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, r: number,
+  fillLevel: number, animating: boolean, time: number,
+): void {
+  ctx.save();
+
+  // Face color: peachy skin → red as fill increases
+  const rr = Math.round(255 - fillLevel * 40);
+  const gg = Math.round(205 - fillLevel * 100);
+  const bb = Math.round(180 - fillLevel * 100);
+  const faceColor = fillLevel > 0 ? `rgb(${rr},${gg},${bb})` : 'rgba(80,100,110,0.5)';
+
+  // Head circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = faceColor;
+  ctx.fill();
+  ctx.strokeStyle = fillLevel > 0 ? 'rgba(200,120,100,0.6)' : 'rgba(72,129,140,0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  if (fillLevel <= 0) {
+    // Sleeping face: closed eyes (—  —) and small mouth
+    ctx.strokeStyle = 'rgba(72,129,140,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy - 2); ctx.lineTo(cx - 2, cy - 2);
+    ctx.moveTo(cx + 2, cy - 2); ctx.lineTo(cx + 5, cy - 2);
+    ctx.stroke();
+    // Tiny "z"
+    ctx.fillStyle = 'rgba(72,129,140,0.4)';
+    ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('z', cx + r + 2, cy - r + 2);
+  } else if (fillLevel < 1) {
+    // Worried → crying transition
+    const worry = fillLevel;
+
+    // Eyes: dots that get bigger, with brows
+    const eyeR = 1.2 + worry * 0.8;
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(cx - 4, cy - 2, eyeR, 0, Math.PI * 2);
+    ctx.arc(cx + 4, cy - 2, eyeR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Worried brows (angled up toward center)
+    ctx.strokeStyle = 'rgba(60,40,30,0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 5 - worry * 2);
+    ctx.lineTo(cx - 3, cy - 6);
+    ctx.moveTo(cx + 7, cy - 5 - worry * 2);
+    ctx.lineTo(cx + 3, cy - 6);
+    ctx.stroke();
+
+    // Mouth: from flat line → open oval
+    const mouthOpen = worry * 3;
+    ctx.fillStyle = `rgba(180,80,80,${0.3 + worry * 0.5})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, 2.5 + worry, mouthOpen, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tear drops (appear as worry grows)
+    if (worry > 0.4) {
+      const tearAlpha = (worry - 0.4) / 0.6;
+      ctx.fillStyle = `rgba(120,180,220,${tearAlpha * 0.7})`;
+      const tearY = cy + 1 + worry * 4;
+      ctx.beginPath();
+      ctx.ellipse(cx - 5, tearY, 1, 1.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + 5, tearY, 1, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Full crying: big open mouth, tears streaming, shake
+    const shake = Math.sin(time * 25) * 1.5;
+    ctx.translate(shake, 0);
+
+    // Scrunched eyes (^ ^)
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, cy - 2);
+    ctx.lineTo(cx - 4, cy - 4);
+    ctx.lineTo(cx - 2, cy - 2);
+    ctx.moveTo(cx + 2, cy - 2);
+    ctx.lineTo(cx + 4, cy - 4);
+    ctx.lineTo(cx + 6, cy - 2);
+    ctx.stroke();
+
+    // Angry brows
+    ctx.strokeStyle = 'rgba(60,40,30,0.7)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 7);
+    ctx.lineTo(cx - 2, cy - 5);
+    ctx.moveTo(cx + 7, cy - 7);
+    ctx.lineTo(cx + 2, cy - 5);
+    ctx.stroke();
+
+    // Big open crying mouth
+    ctx.fillStyle = 'rgba(180,60,60,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, 4, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Streaming tears
+    ctx.fillStyle = 'rgba(120,180,220,0.6)';
+    const t1 = (time * 3) % 1;
+    const t2 = (time * 3 + 0.5) % 1;
+    for (const t of [t1, t2]) {
+      const ty = cy + t * 10;
+      ctx.beginPath();
+      ctx.ellipse(cx - 6, ty, 1.2, 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + 6, ty, 1.2, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Glow when animating
+    if (animating) {
+      ctx.shadowColor = 'rgba(239,68,68,0.5)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(239,68,68,0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  ctx.restore();
+}
+
+const SLOT_SIZE = 40;
+const SLOT_GAP = 4;
 
 function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
@@ -167,28 +307,34 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   const barX = VIEW_W / 2 - barW / 2;
   const barY = VIEW_H - SLOT_SIZE - 14;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(barX - 4, barY - 4, barW + 8, SLOT_SIZE + 8);
+  sketchyRect(ctx, barX - 4, barY - 4, barW + 8, SLOT_SIZE + 8, {
+    fill: SK.bg,
+    stroke: SK.cardStroke,
+  });
 
   // Cheese slot
   const csx = barX;
-  ctx.fillStyle = 'rgba(30,30,46,0.8)';
+  ctx.fillStyle = 'rgba(20,57,94,0.8)';
   ctx.fillRect(csx, barY, SLOT_SIZE, SLOT_SIZE);
-  ctx.strokeStyle = p.cheese > 0 ? '#fbbf24' : '#374151';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(csx + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+  sketchyRect(ctx, csx + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1, {
+    stroke: p.cheese > 0 ? SK.accent : '#374151',
+    lineWidth: 2.5, jitterAmt: 0.6, grain: false,
+  });
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (p.cheese > 0) {
-    ctx.fillStyle = '#fde047';
-    ctx.beginPath();
-    ctx.arc(csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 2, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace';
-    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
+    drawCheeseShape(ctx, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2, 10); // Moved icon slightly down
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace';
+    // Draw count at the top of the icon area
+    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 12);
+
+    ctx.fillStyle = SK.highlight; ctx.font = '7px monospace';
+    ctx.fillText('cheese', csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
   } else {
-    ctx.fillStyle = '#4b5563'; ctx.font = '8px monospace';
+    ctx.fillStyle = SK.dim; ctx.font = '8px monospace';
     ctx.fillText('--', csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
+    ctx.fillStyle = SK.dim; ctx.font = '7px monospace';
+    ctx.fillText('cheese', csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
   }
   if (game.cheeseCooldown > 0) {
     const cdPct = game.cheeseCooldown / 3.0;
@@ -199,25 +345,28 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   // Tool slot
   if (hasTools) {
     const toolX = barX + SLOT_SIZE + SLOT_GAP + 5;
-    ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(toolX - 5, barY + 2);
-    ctx.lineTo(toolX - 5, barY + SLOT_SIZE - 2);
-    ctx.stroke();
+    sketchyLine(ctx, toolX - 5, barY + 2, toolX - 5, barY + SLOT_SIZE - 2, {
+      stroke: SK.dim, lineWidth: 2.5, jitterAmt: 0.5,
+    });
 
-    ctx.fillStyle = 'rgba(30,30,46,0.8)';
+    ctx.fillStyle = 'rgba(20,57,94,0.8)';
     ctx.fillRect(toolX, barY, SLOT_SIZE, SLOT_SIZE);
-    ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 1;
-    ctx.strokeRect(toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+    sketchyRect(ctx, toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1, {
+      stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.6, grain: false,
+    });
 
     const tt = TOOL_TYPES[p.tools[0]];
-    ctx.fillStyle = '#c084fc'; ctx.font = 'bold 7px monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(tt.name.slice(0, 5).toUpperCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
-    ctx.fillStyle = '#c084fc'; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+    const tx = toolX + SLOT_SIZE / 2;
+    const ty = barY + SLOT_SIZE / 2 - 4;
+    drawToolShape(ctx, tx, ty, p.tools[0], 12, game.time);
+
+    ctx.fillStyle = SK.highlight; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(tt.name.split(' ')[0].toLowerCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
+
+    ctx.fillStyle = SK.accent; ctx.font = '9px monospace'; ctx.textBaseline = 'alphabetic';
     ctx.fillText('Q', toolX + 5, barY - 2);
     if (p.tools.length > 1) {
-      ctx.fillStyle = '#9ca3af'; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = SK.dim; ctx.font = '9px monospace'; ctx.textBaseline = 'alphabetic';
       ctx.fillText('+' + (p.tools.length - 1), toolX + SLOT_SIZE - 6, barY + SLOT_SIZE - 3);
     }
   }
@@ -230,7 +379,7 @@ function renderCrosshair(ctx: CanvasRenderingContext2D, game: Game): void {
   const gap = 3;
 
   ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2.5;
 
   // Horizontal lines
   ctx.beginPath();
@@ -256,7 +405,10 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   const mmS = 3, mmW = COLS * mmS, mmH = ROWS * mmS;
   const mmX = VIEW_W - mmW - 8, mmY = VIEW_H - mmH - 20;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(mmX - 1, mmY - 1, mmW + 2, mmH + 2);
+  sketchyRect(ctx, mmX - 1, mmY - 1, mmW + 2, mmH + 2, {
+    fill: SK.bg,
+    stroke: SK.cardStroke,
+  });
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const v = game.grid[y][x];
@@ -292,54 +444,98 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
     }
   }
 
-  // Minimap fog-of-war: permanently reveal camera-seen tiles, cover unseen in white
-  ctx.save();
-  ctx.beginPath();
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      // Cloud-based fog — skip tiles not covered by any opaque cloud
-      const hasFog = game.minimapClouds.some(c => c.dissolve < 1 && Math.abs(c.tx - x) < 3 && Math.abs(c.ty - y) < 3);
-      if (!hasFog) continue;
-      ctx.rect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
-    }
-  }
-  ctx.clip();
-  ctx.fillStyle = '#f8fafc';
-  ctx.fillRect(mmX, mmY, mmW, mmH);
-  const t = game.time;
-  const step = 10;
-  const offsetX = (t * 6) % step;
-  const offsetY = (t * 5) % step;
-  for (let y = mmY - step; y < mmY + mmH + step; y += step) {
-    for (let x = mmX - step; x < mmX + mmW + step; x += step) {
-      const i = Math.floor((x + y) / step);
-      const driftX = Math.sin(t * 0.35 + i) * 1.5;
-      const driftY = Math.cos(t * 0.28 + i * 1.7) * 1.5;
-      const cx = x + offsetX + driftX;
-      const cy = y + offsetY + driftY;
-      const r1 = 4 + (i % 3);
-      const r2 = 6 + ((i + 1) % 3);
-      const pick = i % 5;
-      ctx.fillStyle =
-        pick === 0 ? 'rgba(226,232,240,0.75)' :
-        pick === 1 ? 'rgba(203,213,225,0.6)' :
-        pick === 2 ? '#eef2f6' :
-        pick === 3 ? '#f1f5f9' :
-        'rgba(241,245,249,0.85)';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx + r1, cy - 1, r2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx - r1 * 0.6, cy + 1, r2 - 1, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
+  // Minimap fog-of-war: rough 5px pen crayon clouds that dissolve when camera reveals them
+  const PUFF_COLORS = [
+    [180, 190, 200], // cool gray
+    [165, 175, 185], // medium slate
+    [195, 200, 210], // light steel
+    [170, 180, 192], // dusty gray
+    [190, 195, 205], // silver
+  ];
+  // Seed-based pseudo-random (deterministic per-cloud, no flicker)
+  function srand(n: number): number { n = Math.sin(n) * 43758.5453; return n - Math.floor(n); }
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+  for (const cloud of game.minimapClouds) {
+    if (cloud.dissolve >= 1) continue;
+    const d = cloud.dissolve;
+    let scale: number, alpha: number;
+    if (d < 0.15) {
+      scale = 1.0 + (d / 0.15) * 0.2;
+      alpha = 1;
+    } else {
+      const t2 = (d - 0.15) / 0.85;
+      scale = 1.2 * (1 - t2);
+      alpha = 1 - t2;
+    }
+    if (alpha <= 0) continue;
+    const s = cloud.seed;
+    const ccx = mmX + cloud.tx * mmS;
+    const ccy = mmY + cloud.ty * mmS;
+    const r = cloud.r * scale;
+    const jx = Math.sin(game.time * 7.3 + s) * 0.5;
+    const jy = Math.cos(game.time * 6.1 + s * 1.3) * 0.5;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Puff positions around center
+    const puffs = [
+      { dx: 0, dy: 0, rMul: 1.0 },
+      { dx: ((s % 7) - 3) * 1.4, dy: -((s % 5) - 2) * 1.2, rMul: 0.9 },
+      { dx: -((s % 6) - 3) * 1.3, dy: ((s % 4) - 2) * 1.3, rMul: 0.85 },
+      { dx: ((s % 9) - 4) * 1.1, dy: ((s % 7) - 3) * 1.0, rMul: 0.8 },
+      { dx: -((s % 5) - 2) * 1.5, dy: -((s % 6) - 3) * 1.1, rMul: 0.75 },
+      { dx: (((s * 3) % 7) - 3) * 1.2, dy: (((s * 7) % 5) - 2) * 1.4, rMul: 0.7 },
+    ];
+
+    for (let i = 0; i < puffs.length; i++) {
+      const p = puffs[i];
+      const pcx = ccx + p.dx * scale + jx;
+      const pcy = ccy + p.dy * scale + jy;
+      const pr = r * p.rMul;
+      const [cr, cg, cb] = PUFF_COLORS[(s + i) % PUFF_COLORS.length];
+
+      // Pass 1: thick filled scribble rings (inner→outer) to fill the puff mass
+      for (let ring = 0; ring < 3; ring++) {
+        const ringR = pr * (0.25 + ring * 0.35);
+        const pts = 10;
+        const h = s * 13 + i * 7 + ring * 31; // deterministic hash per ring
+        ctx.globalAlpha = alpha * (0.5 + srand(h + 1) * 0.3);
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},1)`;
+        ctx.lineWidth = 4.5 + (srand(h + 2) - 0.5) * 2;
+        ctx.beginPath();
+        for (let k = 0; k <= pts; k++) {
+          const a = (k / pts) * Math.PI * 2;
+          const wobble = ringR + (srand(h + k * 3) - 0.5) * 3;
+          const px = pcx + Math.cos(a) * wobble;
+          const py = pcy + Math.sin(a) * wobble;
+          k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // Pass 2: second rough outline at full radius for chunky edge
+      const h2 = s * 17 + i * 11;
+      ctx.globalAlpha = alpha * (0.35 + srand(h2) * 0.25);
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},1)`;
+      ctx.lineWidth = 5 + (srand(h2 + 5) - 0.5) * 2;
+      ctx.beginPath();
+      const pts2 = 12;
+      for (let k = 0; k <= pts2; k++) {
+        const a = (k / pts2) * Math.PI * 2;
+        const wobble = pr + (srand(h2 + k * 5) - 0.5) * 2.5;
+        const px = pcx + Math.cos(a) * wobble;
+        const py = pcy + Math.sin(a) * wobble;
+        k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.strokeStyle = 'rgba(72,129,140,0.45)'; ctx.lineWidth = 1.5;
   ctx.strokeRect(
     mmX + (game.camera.x / T) * mmS,
     mmY + (game.camera.y / T) * mmS,
@@ -350,7 +546,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
 
 export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void {
   const tools = game.player.tools;
-  if (!game.wheelOpen || tools.length < 2) return;
+  if (!game.wheelOpen || tools.length < 1) return;
 
   const cx = VIEW_W / 2, cy = VIEW_H / 2;
   const radius = 80;
@@ -374,18 +570,18 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   // Center ring
-  ctx.beginPath(); ctx.arc(cx, cy, radius + 30, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(14,14,26,0.7)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(192,132,252,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+  crayonCircle(ctx, cx, cy, radius + 30, {
+    fill: 'rgba(20,57,94,0.7)', stroke: SK.dim, lineWidth: 2.5, jitterAmt: 0.8,
+  });
 
   // Sector lines
-  ctx.strokeStyle = 'rgba(192,132,252,0.15)'; ctx.lineWidth = 1;
   for (let i = 0; i < n; i++) {
     const ang = i * sectorSize - Math.PI / 2 - sectorSize / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(ang) * (radius + 30), cy + Math.sin(ang) * (radius + 30));
-    ctx.stroke();
+    sketchyLine(ctx, cx, cy,
+      cx + Math.cos(ang) * (radius + 30),
+      cy + Math.sin(ang) * (radius + 30),
+      { stroke: 'rgba(57,100,107,0.5)', lineWidth: 1.5, jitterAmt: 0.6 },
+    );
   }
 
   // Items
@@ -398,33 +594,35 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
 
     // Item circle background
     const bgRadius = hovered ? 26 : 22;
-    ctx.beginPath(); ctx.arc(ix, iy, bgRadius, 0, Math.PI * 2);
-    ctx.fillStyle = hovered ? 'rgba(192,132,252,0.35)' : 'rgba(30,30,46,0.8)';
-    ctx.fill();
-    ctx.strokeStyle = hovered ? '#c084fc' : 'rgba(107,114,128,0.5)';
-    ctx.lineWidth = hovered ? 2.5 : 1;
-    ctx.stroke();
+    crayonCircle(ctx, ix, iy, bgRadius, {
+      fill: hovered ? 'rgba(72,129,140,0.35)' : 'rgba(20,57,94,0.8)',
+      stroke: hovered ? SK.accent : SK.dim,
+      lineWidth: hovered ? 3.5 : 2.5,
+      jitterAmt: hovered ? 1.0 : 0.8,
+    });
 
     // Tool icon
     drawToolShape(ctx, ix, iy, tools[i], hovered ? 14 : 11, game.time);
 
     // Tool name
-    ctx.fillStyle = hovered ? '#e9d5ff' : '#9ca3af';
-    ctx.font = hovered ? 'bold 10px monospace' : '9px monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText(tt.name, ix, iy + bgRadius + 12);
+    crayonText(ctx, tt.name, ix, iy + bgRadius + 12, {
+      fill: hovered ? SK.highlight : SK.dim,
+      font: hovered ? 'bold 12px monospace' : '11px monospace',
+      jitterAmt: 0.3, passes: 2,
+    });
 
     // Active indicator (first item = current)
     if (i === 0) {
-      ctx.fillStyle = 'rgba(192,132,252,0.6)'; ctx.font = '7px monospace';
+      ctx.fillStyle = SK.accent; ctx.font = '9px monospace';
       ctx.fillText('active', ix, iy - bgRadius - 4);
     }
   }
 
   // Center text
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '9px monospace';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('SELECT', cx, cy);
+  crayonText(ctx, 'SELECT', cx, cy, {
+    fill: SK.primary, font: '11px monospace',
+    baseline: 'middle', jitterAmt: 0.3, passes: 2,
+  });
 }
 
 export function renderDetectionOverlay(ctx: CanvasRenderingContext2D, game: Game): void {
