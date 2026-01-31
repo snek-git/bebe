@@ -11,7 +11,7 @@ npm run build        # TypeScript check + Vite production build
 npm run preview      # Preview production build
 ```
 
-No test runner or linter is configured.
+No test runner or linter is configured. Two entry points: `index.html` (game) and `editor.html` (level editor).
 
 ## Architecture
 
@@ -22,7 +22,7 @@ No test runner or linter is configured.
 `requestAnimationFrame` drives the loop. Each frame runs updates then renders, all using delta-time for frame-rate independence.
 
 **Update order matters:**
-`updatePlayer → updateBabies → updateProjectiles → updateDistractions → updateTVs → updateDetection → checkPickups → checkWin → updateCamera`
+`updatePlayer → updateBabies → updateProjectiles → updateDistractions → updateTVs → updateDoors → updateNoiseEvents → updateDetection → checkPickups → checkWin → updateMinimapSeen → updateCamera`
 
 ### State Model
 
@@ -30,26 +30,31 @@ A single `Game` object (defined in `src/types.ts`, initialized in `src/state.ts`
 
 ### Module Organization
 
-- **src/config.ts** — All balance constants (speeds, ranges, durations) and level data (room definitions, baby waypoints, loot/pickup placements, corridors)
-- **src/types.ts** — All TypeScript interfaces (`Game`, `Baby`, `Player`, `Projectile`, etc.)
+- **src/config.ts** — All balance constants (speeds, ranges, durations). Re-exports spatial data from `level-data.ts`
+- **src/level-data.ts** — Room definitions, corridors, baby waypoints, loot/pickup placements, door/TV/container defs
+- **src/types.ts** — All TypeScript interfaces (`Game`, `Baby`, `Player`, `Projectile`, `Door`, etc.)
 - **src/input.ts** — Keyboard/mouse state stored in module-level closure, queried each frame
-- **src/map.ts** — Generates the tile grid (50x40, 32px tiles) from room/corridor/furniture definitions
+- **src/map.ts** — Generates the tile grid from room/corridor/furniture definitions, grid query helpers (`isWall`, `isSolid`, `isWalkable`, `isDoorBlocking`)
 - **src/utils.ts** — Pure utilities: distance, angle diff, line-of-sight raycasting (8px steps), wall collision resolution
+- **src/pathfinding.ts** — A* implementation with nearest-walkable snapping, used by toddler AI and chase behavior
+- **src/sprites.ts** — Sprite sheet loading for baby/stawler animations
+- **src/audio.ts** — Audio system (music, SFX)
 - **src/update/** — Game logic systems (player movement/peekaboo, baby AI/pathfinding, projectile physics, detection meter, world interactions)
-- **src/render/** — Drawing systems (map tiles, entities, vision cones, HUD/minimap, title/gameover/win screens)
+- **src/render/** — Drawing systems (map tiles, entities, vision cones, HUD/minimap, title/gameover/win screens, sketchy hand-drawn effects)
+- **src/editor/** — Separate level editor app with tools for rooms, corridors, furniture, walls, baby placement, entity editing
 
 ### Coordinate System
 
-50x40 tile grid at 32px per tile (1600x1280 world pixels). Camera smoothly follows the player. Grid values: 0=walkable, 1=wall, 2=furniture.
+50x44 tile grid (`COLS=50`, `ROWS=44`) at 32px per tile (`T=32`). Camera smoothly follows the player. Grid values: 0=walkable, 1=wall, 2=furniture.
 
 ### Baby AI (src/update/babies.ts)
 
-Two types: **Crawlers** (orange, patrol waypoints, can't see hiding player) and **Stawlers** (pink, faster, can chase hiding players at melee range). Both use vision cones with raycasted line-of-sight checks and can be distracted by iPads, TVs, and pacifiers.
+Three types: **Crawlers** (orange, patrol waypoints, can't see hiding player), **Stawlers** (pink, faster with friction-based movement, can chase hiding players at melee range), and **Toddlers** (roaming AI using A* pathfinding, chase when player visible). All use vision cones with raycasted line-of-sight checks and can be distracted by iPads, TVs, and pacifiers.
 
 ### Detection System (src/update/detection.ts)
 
-Detection meter (0-100) increases when babies see the player and decays when unseen. Reaching 100 triggers game over.
+Detection meter (0-100) increases when babies see the player and decays when unseen. Reaching 100 triggers game over. Gear modifiers: Sneakers (0.6x detection), Sunglasses (0.7x stamina drain).
 
 ### Game States
 
-`title` → `playing` → `gameover` or `win` (R to retry, managed via `game.state` field)
+`title` → `playing` ↔ `paused` → `gameover` or `win` (R to retry, ESC to pause, managed via `game.state` field)
