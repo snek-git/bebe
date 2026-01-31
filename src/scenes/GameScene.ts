@@ -37,6 +37,7 @@ export class GameScene extends Phaser.Scene {
   qKey!: Phaser.Input.Keyboard.Key;
   spaceKey!: Phaser.Input.Keyboard.Key;
   shiftKey!: Phaser.Input.Keyboard.Key;
+  rKey!: Phaser.Input.Keyboard.Key;
 
   // Graphics layers
   worldGfx!: Phaser.GameObjects.Graphics;
@@ -176,6 +177,7 @@ export class GameScene extends Phaser.Scene {
     this.qKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.shiftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    this.rKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
     // Space key for peekaboo (prevent default browser scroll)
     this.spaceKey.on('down', () => {
@@ -221,14 +223,49 @@ export class GameScene extends Phaser.Scene {
       this.game_.qDownTime = 0;
     });
 
-    // R key for retry
+    // R key for retry — in-place reset (scene.restart/scene.start are broken in Phaser 4 RC6)
     this.input.keyboard!.on('keydown-R', () => {
       if (this.game_.state === 'gameover' || this.game_.state === 'win') {
-        this.scene.restart();
+        this.resetGame();
       }
     });
+  }
 
-    // ESC for pause (future)
+  resetGame(): void {
+    // Re-initialize game state in-place (scene.restart/scene.start are broken in Phaser 4 RC6)
+    this.game_ = initGame();
+    this.game_.state = 'playing';
+
+    // Reset player sprite position + velocity
+    this.playerSprite.setPosition(this.game_.player.x, this.game_.player.y);
+    const playerBody = this.playerSprite.body as Phaser.Physics.Arcade.Body;
+    playerBody.setVelocity(0, 0);
+
+    // Reset baby images to match new state
+    const tints: Record<string, number> = { crawler: 0xffffff, stawler: 0xff69b4, toddler: 0xff4444 };
+    for (let i = 0; i < this.game_.babies.length; i++) {
+      const b = this.game_.babies[i];
+      if (this.babyImages[i]) {
+        this.babyImages[i].setPosition(b.x, b.y);
+        this.babyImages[i].setTint(tints[b.type] || 0xffffff);
+        this.babyImages[i].setAlpha(1);
+        this.babyImages[i].setRotation(0);
+        this.babyImages[i].setVisible(true);
+      }
+    }
+
+    // Clear all graphics
+    this.worldGfx.clear();
+    this.visionGfx.clear();
+    this.uiGfx.clear();
+    this.overlayGfx.clear();
+
+    // Hide all overlay texts
+    this.overlayTitleText.setVisible(false);
+    this.overlaySubText.setVisible(false);
+    this.overlayStatsText.setVisible(false);
+    this.overlayPromptText.setVisible(false);
+    this.retryButtonText.setVisible(false);
   }
 
   useTool(): void {
@@ -280,7 +317,7 @@ export class GameScene extends Phaser.Scene {
       if (game.retryFadeTimer > 0) {
         game.retryFadeTimer = Math.max(0, game.retryFadeTimer - dt);
         if (game.retryFadeTimer === 0 && game.retryPending) {
-          this.scene.restart();
+          this.resetGame();
         }
       }
       this.renderAll();
