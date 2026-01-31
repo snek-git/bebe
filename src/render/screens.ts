@@ -1,4 +1,5 @@
 import { T, VIEW_W, VIEW_H, TOTAL_LOOT } from '../config';
+import { SK, sketchyRoundRect, crayonText } from './sketchy';
 import type { Game } from '../types';
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -36,21 +37,24 @@ export function renderTitle(ctx: CanvasRenderingContext2D): void {
   for (let y = 0; y < 18; y++) {
     for (let x = 0; x < 25; x++) {
       if ((x + y) % 3 === 0) {
-        ctx.fillStyle = 'rgba(58,58,92,0.3)';
+        ctx.fillStyle = 'rgba(20,57,94,0.25)';
         ctx.fillRect(x * T, y * T, T, T);
       }
     }
   }
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 48px monospace';
-  ctx.fillText('BEBE HEIST', VIEW_W / 2, 100);
-  ctx.fillStyle = '#fb923c'; ctx.font = '14px monospace';
-  ctx.fillText('Steal the Golden Bebe. Don\'t get caught.', VIEW_W / 2, 130);
-  ctx.fillStyle = '#fb923c'; ctx.font = '36px monospace';
-  ctx.fillText('(o_o)', VIEW_W / 2, 190);
+  crayonText(ctx, 'BEBE HEIST', VIEW_W / 2, 100, {
+    fill: SK.highlight, font: 'bold 48px monospace', jitterAmt: 1.5,
+  });
+  crayonText(ctx, 'Steal the Golden Bebe. Don\'t get caught.', VIEW_W / 2, 130, {
+    fill: SK.accent, font: '14px monospace',
+  });
+  crayonText(ctx, '(o_o)', VIEW_W / 2, 190, {
+    fill: SK.accent, font: '36px monospace', jitterAmt: 1.2,
+  });
 
-  ctx.fillStyle = '#e5e7eb'; ctx.font = '10px monospace';
+  ctx.fillStyle = SK.primary; ctx.font = '10px monospace';
   const lines = [
     'Infiltrate the baby bank. Find 3 keycards. Reach the vault.',
     'Babies have no object permanence -- hide your face and they forget you.', '',
@@ -66,8 +70,9 @@ export function renderTitle(ctx: CanvasRenderingContext2D): void {
   lines.forEach((l, i) => ctx.fillText(l, VIEW_W / 2, 230 + i * 16));
 
   ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7;
-  ctx.fillStyle = '#4ade80'; ctx.font = 'bold 16px monospace';
-  ctx.fillText('PRESS SPACE TO START', VIEW_W / 2, VIEW_H - 20);
+  crayonText(ctx, 'PRESS SPACE TO START', VIEW_W / 2, VIEW_H - 20, {
+    fill: SK.highlight, font: 'bold 16px monospace',
+  });
   ctx.globalAlpha = 1;
 }
 
@@ -81,19 +86,20 @@ export function renderGameOver(ctx: CanvasRenderingContext2D, game: Game): void 
   const cardH = 210 * 1.13;
   const cardX = VIEW_W / 2 - cardW / 2;
   const cardY = VIEW_H / 2 - cardH / 2;
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-  roundRect(ctx, cardX, cardY, cardW, cardH, 10);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
-  ctx.lineWidth = 2;
-  roundRect(ctx, cardX, cardY, cardW, cardH, 10);
-  ctx.stroke();
 
-  ctx.fillStyle = '#ef4444'; ctx.font = 'bold 44px monospace';
-  ctx.fillText('BUSTED!', VIEW_W / 2, cardY + 58);
-  ctx.fillStyle = '#fca5a5'; ctx.font = '14px monospace';
-  ctx.fillText('The baby saw your face and started crying.', VIEW_W / 2, cardY + 98);
-  ctx.fillStyle = '#e5e7eb'; ctx.font = '12px monospace';
+  sketchyRoundRect(ctx, cardX, cardY, cardW, cardH, 10, {
+    fill: SK.cardFill,
+    stroke: SK.cardStroke,
+    lineWidth: 2,
+  });
+
+  crayonText(ctx, 'BUSTED!', VIEW_W / 2, cardY + 58, {
+    fill: SK.warning, font: 'bold 44px monospace', jitterAmt: 1.5,
+  });
+  crayonText(ctx, 'The baby saw your face and started crying.', VIEW_W / 2, cardY + 98, {
+    fill: SK.primary, font: '14px monospace',
+  });
+  ctx.fillStyle = SK.primary; ctx.font = '12px monospace';
   ctx.fillText('Keys: ' + game.player.keys.length + '/3 | Golden Bebe: ' + (game.player.loot > 0 ? 'YES' : 'NO'), VIEW_W / 2, cardY + 124);
 
   if (game.gameOverTimer > RETRY_APPEAR_TIME) {
@@ -102,21 +108,22 @@ export function renderGameOver(ctx: CanvasRenderingContext2D, game: Game): void 
     const press = Math.sin(pressT * Math.PI);
     const pressY = press * 4;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-    roundRect(ctx, btn.x, btn.y + 5, btn.w, btn.h, 8);
-    ctx.fill();
+    // Button shadow
+    sketchyRoundRect(ctx, btn.x, btn.y + 5, btn.w, btn.h, 8, {
+      fill: 'rgba(20,57,94,0.9)',
+    });
 
-    ctx.fillStyle = '#0f172a';
-    roundRect(ctx, btn.x, btn.y + pressY, btn.w, btn.h, 8);
-    ctx.fill();
-    ctx.strokeStyle = '#f97316';
-    ctx.lineWidth = 2;
-    roundRect(ctx, btn.x, btn.y + pressY, btn.w, btn.h, 8);
-    ctx.stroke();
+    // Button face
+    sketchyRoundRect(ctx, btn.x, btn.y + pressY, btn.w, btn.h, 8, {
+      fill: SK.cardFill,
+      stroke: SK.accent,
+      lineWidth: 2,
+    });
 
-    ctx.fillStyle = '#fdba74'; ctx.font = 'bold 14px monospace';
-    ctx.fillText('RETRY HEIST', VIEW_W / 2, btn.y + pressY + 24);
-    ctx.fillStyle = '#cbd5f5'; ctx.font = '11px monospace';
+    crayonText(ctx, 'RETRY HEIST', VIEW_W / 2, btn.y + pressY + 24, {
+      fill: SK.highlight, font: 'bold 14px monospace',
+    });
+    ctx.fillStyle = SK.dim; ctx.font = '11px monospace';
     ctx.fillText('Press R or click', VIEW_W / 2, btn.y - 10);
   }
 
@@ -129,15 +136,53 @@ export function renderGameOver(ctx: CanvasRenderingContext2D, game: Game): void 
 
 export function renderWinScreen(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  const cardW = 400;
+  const cardH = 180;
+  const cardX = VIEW_W / 2 - cardW / 2;
+  const cardY = VIEW_H / 2 - cardH / 2;
+
+  sketchyRoundRect(ctx, cardX, cardY, cardW, cardH, 10, {
+    fill: SK.cardFill,
+    stroke: SK.cardStroke,
+    lineWidth: 2,
+  });
+
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#4ade80'; ctx.font = 'bold 48px monospace';
-  ctx.fillText('ESCAPED!', VIEW_W / 2, VIEW_H / 2 - 40);
-  ctx.fillStyle = '#86efac'; ctx.font = '14px monospace';
-  ctx.fillText('You stole the Golden Bebe and got away clean.', VIEW_W / 2, VIEW_H / 2 + 10);
-  ctx.fillStyle = '#fbbf24'; ctx.font = '12px monospace';
-  ctx.fillText('Cheese remaining: ' + game.player.cheese + ' | Tools: ' + game.player.tools.length, VIEW_W / 2, VIEW_H / 2 + 50);
+  crayonText(ctx, 'ESCAPED!', VIEW_W / 2, cardY + 58, {
+    fill: SK.highlight, font: 'bold 48px monospace', jitterAmt: 1.5,
+  });
+  crayonText(ctx, 'You stole the Golden Bebe and got away clean.', VIEW_W / 2, cardY + 90, {
+    fill: SK.primary, font: '14px monospace',
+  });
+  ctx.fillStyle = SK.accent; ctx.font = '12px monospace';
+  ctx.fillText('Cheese remaining: ' + game.player.cheese + ' | Tools: ' + game.player.tools.length, VIEW_W / 2, cardY + 118);
   ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7;
-  ctx.fillStyle = '#e5e7eb'; ctx.font = 'bold 14px monospace';
-  ctx.fillText('PRESS R TO PLAY AGAIN', VIEW_W / 2, VIEW_H / 2 + 90);
+  crayonText(ctx, 'PRESS R TO PLAY AGAIN', VIEW_W / 2, cardY + 154, {
+    fill: SK.highlight, font: 'bold 14px monospace',
+  });
   ctx.globalAlpha = 1;
+}
+
+export function renderPauseScreen(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  const cardW = 280;
+  const cardH = 120;
+  const cardX = VIEW_W / 2 - cardW / 2;
+  const cardY = VIEW_H / 2 - cardH / 2;
+
+  sketchyRoundRect(ctx, cardX, cardY, cardW, cardH, 10, {
+    fill: SK.cardFill,
+    stroke: SK.cardStroke,
+    lineWidth: 2,
+  });
+
+  crayonText(ctx, 'PAUSED', VIEW_W / 2, cardY + 55, {
+    fill: SK.highlight, font: 'bold 36px monospace', jitterAmt: 1.2,
+  });
+  crayonText(ctx, 'Press ESC to resume', VIEW_W / 2, cardY + 90, {
+    fill: SK.dim, font: '12px monospace', jitterAmt: 0.5, passes: 2,
+  });
 }

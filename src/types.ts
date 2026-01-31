@@ -1,4 +1,4 @@
-export type GameState = 'title' | 'playing' | 'gameover' | 'win';
+export type GameState = 'title' | 'playing' | 'paused' | 'gameover' | 'win';
 export type ToolType = 'ipad' | 'remote' | 'pacifier';
 export type LootType = 'cash' | 'gold' | 'diamond' | 'key' | 'docs' | 'jewels' | 'coin';
 export type KeyType = 'keyA' | 'keyB' | 'keyC';
@@ -235,4 +235,5 @@ export interface Game {
   qDownTime: number;
   time: number;
   camera: Camera;
+  milkFillAnim: number[];
 }

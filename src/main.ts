@@ -46,6 +46,15 @@ onKeyDown((e) => {
     game.state = 'playing';
   }
 
+  if (game.state === 'playing' && e.code === 'Escape') {
+    game.wheelOpen = false;
+    game.wheelHover = -1;
+    game.qDownTime = 0;
+    game.state = 'paused';
+  } else if (game.state === 'paused' && e.code === 'Escape') {
+    game.state = 'playing';
+  }
+
   if (game.state === 'playing' && e.key.toLowerCase() === 'q' &&
       !game.player.hiding && !game.player.looting && !game.player.searching && game.player.tools.length > 0 && game.qDownTime === 0) {
     game.qDownTime = performance.now();
@@ -104,8 +113,11 @@ onKeyUp((e) => {
   game.qDownTime = 0;
 });
 
-addClickHandler(canvas, (worldX, worldY) => {
+canvas.addEventListener('click', (e) => {
   if (game.state !== 'playing' || game.player.hiding || game.player.looting || game.player.searching) return;
+  const r = canvas.getBoundingClientRect();
+  const worldX = (e.clientX - r.left) * (VIEW_W / r.width) + game.camera.x;
+  const worldY = (e.clientY - r.top) * (VIEW_H / r.height) + game.camera.y;
   const p = game.player;
   if (p.cheese > 0 && game.cheeseCooldown <= 0) {
     p.cheese--;
@@ -116,7 +128,7 @@ addClickHandler(canvas, (worldX, worldY) => {
       landed: false, timer: 0, dead: false, stuckBaby: null,
     });
   }
-}, game.camera);
+});
 
 addScreenClickHandler(canvas, (screenX, screenY) => {
   if (game.state !== 'gameover' || game.gameOverTimer <= RETRY_APPEAR_TIME) return;

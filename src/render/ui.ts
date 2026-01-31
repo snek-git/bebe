@@ -4,50 +4,38 @@ import {
 } from '../config';
 import { mouseScreen } from '../input';
 import { drawToolShape } from './shapes';
+import { SK, sketchyRect, sketchyLine, crayonCircle, crayonText } from './sketchy';
 import type { Game } from '../types';
 
 export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
   const time = game.time;
 
-  // Detection bar
+  // Milk bottle detection indicator
   const det = game.detection;
-  const detPct = det / 100;
-  const bw = 160, bh = 12, bx = VIEW_W / 2 - bw / 2, by = 10;
+  const milkIndex = Math.min(5, Math.floor(det / 20));
+  const fillFraction = (det % 20) / 20;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
-  ctx.fillStyle = '#374151'; ctx.fillRect(bx, by, bw, bh);
+  const bottleW = 16, bottleH = 24, bottleGap = 4;
+  const totalW = 5 * bottleW + 4 * bottleGap;
+  const startX = VIEW_W / 2 - totalW / 2;
+  const baseY = 10;
 
-  if (det > 0) {
-    const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    grad.addColorStop(0, '#fbbf24'); grad.addColorStop(1, '#ef4444');
-    ctx.fillStyle = grad;
-    ctx.fillRect(bx, by, bw * detPct, bh);
+  for (let i = 0; i < 5; i++) {
+    const bx = startX + i * (bottleW + bottleGap);
 
-    // Subtle bright leading edge
-    const edgeX = bx + bw * detPct;
-    ctx.fillStyle = `rgba(255,255,255,${0.25 + Math.sin(time * 6) * 0.15})`;
-    ctx.fillRect(edgeX - 1, by, 1, bh);
-  }
+    // Bounce offset from drop animation
+    const anim = game.milkFillAnim[i];
+    const bounceT = anim / 0.3;
+    const yOff = bounceT > 0 ? -12 * Math.sin(bounceT * Math.PI) * bounceT : 0;
+    const by = baseY + yOff;
 
-  // Border — subtle color shift at high detection
-  if (det > 70) {
-    ctx.strokeStyle = 'rgba(239,68,68,0.7)';
-    ctx.lineWidth = 1.5;
-  } else {
-    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1;
-  }
-  ctx.strokeRect(bx, by, bw, bh);
+    // Determine fill level for this bottle
+    let fill = 0;
+    if (i < milkIndex) fill = 1;
+    else if (i === milkIndex) fill = fillFraction;
 
-  // Label + percentage
-  ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  if (det > 0) {
-    ctx.fillStyle = det > 60 ? '#ef4444' : det > 30 ? '#fbbf24' : '#e5e7eb';
-    ctx.fillText(Math.round(det) + '%', VIEW_W / 2, by + bh + 11);
-  } else {
-    ctx.fillStyle = '#6b7280';
-    ctx.fillText('DETECTION', VIEW_W / 2, by + bh + 11);
+    drawMilkBottle(ctx, bx, by, bottleW, bottleH, fill, bounceT > 0);
   }
 
   // === HOTBAR (bottom center) ===
@@ -87,16 +75,17 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   // Peekaboo stamina bar
   const pbw = 80, pbh = 8, pbx = VIEW_W - pbw - 12, pby = 30;
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
-  ctx.fillStyle = '#1e1e2e'; ctx.fillRect(pbx, pby, pbw, pbh);
+  ctx.fillStyle = SK.cardFill; ctx.fillRect(pbx, pby, pbw, pbh);
   const stPct = p.peekStamina / PEEKABOO_MAX;
   ctx.fillStyle = p.peekExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
   ctx.fillRect(pbx, pby, pbw * stPct, pbh);
-  ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1; ctx.strokeRect(pbx, pby, pbw, pbh);
+  sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 1, jitterAmt: 0.8, grain: false });
   const showPulse = p.hiding && game.peekabooPulseTimer > 0;
   if (!showPulse) {
-    ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = p.peekExhausted ? '#ef4444' : '#9ca3af';
-    ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
+    crayonText(ctx, 'peekaboo', pbx + pbw / 2, pby - 3, {
+      fill: p.peekExhausted ? '#ef4444' : SK.dim,
+      font: 'bold 9px monospace', jitterAmt: 0.4, passes: 2,
+    });
     ctx.textAlign = 'right';
   }
 
@@ -117,33 +106,34 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
       g = Math.round(222 + (68 - 222) * k);
       b = Math.round(128 + (68 - 128) * k);
     }
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-    ctx.font = `bold ${size}px monospace`;
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
     ctx.shadowBlur = 4 + wave * 4;
-    ctx.textAlign = 'center';
-    ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
+    crayonText(ctx, 'peekaboo', pbx + pbw / 2, pby - 3, {
+      fill: `rgb(${r}, ${g}, ${b})`,
+      font: `bold ${size}px monospace`,
+      jitterAmt: 0.5, passes: 2,
+    });
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
     ctx.textAlign = 'right';
   } else if (p.looting) {
-    ctx.fillStyle = '#fbbf24'; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
+    ctx.fillStyle = SK.warning; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
   } else if (p.searching) {
-    ctx.fillStyle = '#a78bfa'; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
+    ctx.fillStyle = SK.accent; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
   } else if (p.sprinting) {
-    ctx.fillStyle = '#86efac'; ctx.fillText('SPRINT', VIEW_W - 12, 22);
+    ctx.fillStyle = SK.primary; ctx.fillText('SPRINT', VIEW_W - 12, 22);
   }
 
   // Controls help
-  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '9px monospace';
+  ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '9px monospace';
   ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
 
   // Prize collected message (above hotbar)
   if (p.loot >= TOTAL_LOOT) {
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#4ade80'; ctx.font = 'bold 11px monospace';
     ctx.globalAlpha = Math.sin(time * 4) * 0.3 + 0.7;
-    ctx.fillText('GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 62);
+    crayonText(ctx, 'GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 62, {
+      fill: SK.highlight, font: 'bold 11px monospace', jitterAmt: 0.5, passes: 2,
+    });
     ctx.globalAlpha = 1;
   }
 
@@ -154,6 +144,81 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
 
   // Minimap
   renderMinimap(ctx, game);
+}
+
+function drawMilkBottle(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  fillLevel: number, animating: boolean,
+): void {
+  const bodyW = w - 4, bodyH = h - 6;
+  const bodyX = x + 2, bodyY = y + 6;
+  const neckW = 6, neckH = 4;
+  const neckX = x + w / 2 - neckW / 2, neckY = bodyY - neckH;
+  const capW = 8, capH = 2;
+  const capX = x + w / 2 - capW / 2, capY = neckY - capH;
+  const r = 2; // corner radius for body
+
+  // Build bottle clip path
+  function bottlePath() {
+    ctx.beginPath();
+    // Cap
+    ctx.rect(capX, capY, capW, capH);
+    // Neck
+    ctx.rect(neckX, neckY, neckW, neckH);
+    // Body (rounded rect)
+    ctx.moveTo(bodyX + r, bodyY);
+    ctx.lineTo(bodyX + bodyW - r, bodyY);
+    ctx.arcTo(bodyX + bodyW, bodyY, bodyX + bodyW, bodyY + r, r);
+    ctx.lineTo(bodyX + bodyW, bodyY + bodyH - r);
+    ctx.arcTo(bodyX + bodyW, bodyY + bodyH, bodyX + bodyW - r, bodyY + bodyH, r);
+    ctx.lineTo(bodyX + r, bodyY + bodyH);
+    ctx.arcTo(bodyX, bodyY + bodyH, bodyX, bodyY + bodyH - r, r);
+    ctx.lineTo(bodyX, bodyY + r);
+    ctx.arcTo(bodyX, bodyY, bodyX + r, bodyY, r);
+    ctx.closePath();
+  }
+
+  // Empty outline
+  ctx.save();
+  bottlePath();
+  ctx.strokeStyle = 'rgba(72,129,140,0.25)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (fillLevel > 0) {
+    // Fill from bottom up using clip
+    ctx.save();
+    bottlePath();
+    ctx.clip();
+
+    const totalH = capH + neckH + bodyH;
+    const fillTop = capY + totalH * (1 - fillLevel);
+
+    // Milk fill color
+    if (fillLevel >= 1 && animating) {
+      ctx.shadowColor = 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 6;
+    }
+    ctx.fillStyle = fillLevel >= 1 ? 'rgba(255,255,255,0.9)' : 'rgba(119,152,158,0.6)';
+    ctx.fillRect(x, fillTop, w, totalH);
+
+    ctx.restore();
+
+    // Glow for full bottles
+    if (fillLevel >= 1) {
+      ctx.save();
+      bottlePath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(255,255,255,0.35)';
+      ctx.shadowBlur = 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
 }
 
 const SLOT_SIZE = 34;
@@ -167,16 +232,19 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   const barX = VIEW_W / 2 - barW / 2;
   const barY = VIEW_H - SLOT_SIZE - 14;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(barX - 4, barY - 4, barW + 8, SLOT_SIZE + 8);
+  sketchyRect(ctx, barX - 4, barY - 4, barW + 8, SLOT_SIZE + 8, {
+    fill: SK.bg,
+    stroke: SK.cardStroke,
+  });
 
   // Cheese slot
   const csx = barX;
-  ctx.fillStyle = 'rgba(30,30,46,0.8)';
+  ctx.fillStyle = 'rgba(20,57,94,0.8)';
   ctx.fillRect(csx, barY, SLOT_SIZE, SLOT_SIZE);
-  ctx.strokeStyle = p.cheese > 0 ? '#fbbf24' : '#374151';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(csx + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+  sketchyRect(ctx, csx + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1, {
+    stroke: p.cheese > 0 ? SK.accent : '#374151',
+    lineWidth: 1.2, jitterAmt: 1, grain: false,
+  });
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (p.cheese > 0) {
@@ -187,7 +255,7 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace';
     ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
   } else {
-    ctx.fillStyle = '#4b5563'; ctx.font = '8px monospace';
+    ctx.fillStyle = SK.dim; ctx.font = '8px monospace';
     ctx.fillText('--', csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
   }
   if (game.cheeseCooldown > 0) {
@@ -199,25 +267,24 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   // Tool slot
   if (hasTools) {
     const toolX = barX + SLOT_SIZE + SLOT_GAP + 5;
-    ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(toolX - 5, barY + 2);
-    ctx.lineTo(toolX - 5, barY + SLOT_SIZE - 2);
-    ctx.stroke();
+    sketchyLine(ctx, toolX - 5, barY + 2, toolX - 5, barY + SLOT_SIZE - 2, {
+      stroke: SK.dim, lineWidth: 1, jitterAmt: 1,
+    });
 
-    ctx.fillStyle = 'rgba(30,30,46,0.8)';
+    ctx.fillStyle = 'rgba(20,57,94,0.8)';
     ctx.fillRect(toolX, barY, SLOT_SIZE, SLOT_SIZE);
-    ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 1;
-    ctx.strokeRect(toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+    sketchyRect(ctx, toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1, {
+      stroke: SK.accent, lineWidth: 1.2, jitterAmt: 1, grain: false,
+    });
 
     const tt = TOOL_TYPES[p.tools[0]];
-    ctx.fillStyle = '#c084fc'; ctx.font = 'bold 7px monospace';
+    ctx.fillStyle = SK.accent; ctx.font = 'bold 7px monospace';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(tt.name.slice(0, 5).toUpperCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
-    ctx.fillStyle = '#c084fc'; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = SK.accent; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
     ctx.fillText('Q', toolX + 5, barY - 2);
     if (p.tools.length > 1) {
-      ctx.fillStyle = '#9ca3af'; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = SK.dim; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
       ctx.fillText('+' + (p.tools.length - 1), toolX + SLOT_SIZE - 6, barY + SLOT_SIZE - 3);
     }
   }
@@ -256,7 +323,10 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   const mmS = 3, mmW = COLS * mmS, mmH = ROWS * mmS;
   const mmX = VIEW_W - mmW - 8, mmY = VIEW_H - mmH - 20;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(mmX - 1, mmY - 1, mmW + 2, mmH + 2);
+  sketchyRect(ctx, mmX - 1, mmY - 1, mmW + 2, mmH + 2, {
+    fill: SK.bg,
+    stroke: SK.cardStroke,
+  });
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const v = game.grid[y][x];
@@ -337,7 +407,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   }
   ctx.restore();
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(72,129,140,0.35)'; ctx.lineWidth = 1;
   ctx.strokeRect(
     mmX + (game.camera.x / T) * mmS,
     mmY + (game.camera.y / T) * mmS,
@@ -372,18 +442,18 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   // Center ring
-  ctx.beginPath(); ctx.arc(cx, cy, radius + 30, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(14,14,26,0.7)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(192,132,252,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+  crayonCircle(ctx, cx, cy, radius + 30, {
+    fill: 'rgba(20,57,94,0.7)', stroke: SK.dim, lineWidth: 2,
+  });
 
   // Sector lines
-  ctx.strokeStyle = 'rgba(192,132,252,0.15)'; ctx.lineWidth = 1;
   for (let i = 0; i < n; i++) {
     const ang = i * sectorSize - Math.PI / 2 - sectorSize / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(ang) * (radius + 30), cy + Math.sin(ang) * (radius + 30));
-    ctx.stroke();
+    sketchyLine(ctx, cx, cy,
+      cx + Math.cos(ang) * (radius + 30),
+      cy + Math.sin(ang) * (radius + 30),
+      { stroke: 'rgba(57,100,107,0.5)', lineWidth: 1, jitterAmt: 1.5 },
+    );
   }
 
   // Items
@@ -396,33 +466,35 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
 
     // Item circle background
     const bgRadius = hovered ? 26 : 22;
-    ctx.beginPath(); ctx.arc(ix, iy, bgRadius, 0, Math.PI * 2);
-    ctx.fillStyle = hovered ? 'rgba(192,132,252,0.35)' : 'rgba(30,30,46,0.8)';
-    ctx.fill();
-    ctx.strokeStyle = hovered ? '#c084fc' : 'rgba(107,114,128,0.5)';
-    ctx.lineWidth = hovered ? 2.5 : 1;
-    ctx.stroke();
+    crayonCircle(ctx, ix, iy, bgRadius, {
+      fill: hovered ? 'rgba(72,129,140,0.35)' : 'rgba(20,57,94,0.8)',
+      stroke: hovered ? SK.accent : SK.dim,
+      lineWidth: hovered ? 2.5 : 1,
+      jitterAmt: hovered ? 2 : 1.5,
+    });
 
     // Tool icon
     drawToolShape(ctx, ix, iy, tools[i], hovered ? 14 : 11, game.time);
 
     // Tool name
-    ctx.fillStyle = hovered ? '#e9d5ff' : '#9ca3af';
-    ctx.font = hovered ? 'bold 10px monospace' : '9px monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText(tt.name, ix, iy + bgRadius + 12);
+    crayonText(ctx, tt.name, ix, iy + bgRadius + 12, {
+      fill: hovered ? SK.highlight : SK.dim,
+      font: hovered ? 'bold 10px monospace' : '9px monospace',
+      jitterAmt: 0.5, passes: 2,
+    });
 
     // Active indicator (first item = current)
     if (i === 0) {
-      ctx.fillStyle = 'rgba(192,132,252,0.6)'; ctx.font = '7px monospace';
+      ctx.fillStyle = SK.accent; ctx.font = '7px monospace';
       ctx.fillText('active', ix, iy - bgRadius - 4);
     }
   }
 
   // Center text
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '9px monospace';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('SELECT', cx, cy);
+  crayonText(ctx, 'SELECT', cx, cy, {
+    fill: SK.primary, font: '9px monospace',
+    baseline: 'middle', jitterAmt: 0.5, passes: 2,
+  });
 }
 
 export function renderDetectionOverlay(ctx: CanvasRenderingContext2D, game: Game): void {
