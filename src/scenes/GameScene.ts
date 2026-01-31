@@ -7,7 +7,7 @@ import {
   SPRINT_NOISE_RANGE, SLAM_NOISE_RANGE,
   DOOR_SLAM_STUN, NOISE_DURATION, SUNGLASSES_DRAIN_MULT,
   VISION_RANGE, VISION_ANGLE, STAWLER_APPROACH_RANGE,
-  LOOT_TYPES,
+  LOOT_TYPES, TOOL_TYPES,
 } from '../config';
 import { initGame } from '../state';
 import { roomDef, isSolid, isDoorBlocking, getDoorAt } from '../map';
@@ -56,6 +56,9 @@ export class GameScene extends Phaser.Scene {
   overlayStatsText!: Phaser.GameObjects.Text;
   overlayPromptText!: Phaser.GameObjects.Text;
   retryButtonText!: Phaser.GameObjects.Text;
+  gearText1!: Phaser.GameObjects.Text;
+  gearText2!: Phaser.GameObjects.Text;
+  proximityText!: Phaser.GameObjects.Text;
 
   // Music
   music!: Phaser.Sound.BaseSound;
@@ -154,6 +157,12 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 1).setScrollFactor(0).setDepth(201).setVisible(false);
     this.retryButtonText = this.add.text(VIEW_W / 2, 0, '', { ...mono, fontSize: '14px', fontStyle: 'bold', color: '#fdba74' })
       .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.gearText1 = this.add.text(12, 42, '', { ...mono, fontSize: '9px', fontStyle: 'bold', color: '#4ade80' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(101).setVisible(false);
+    this.gearText2 = this.add.text(62, 42, '', { ...mono, fontSize: '9px', fontStyle: 'bold', color: '#a855f7' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(101).setVisible(false);
+    this.proximityText = this.add.text(0, 0, '', { ...mono, fontSize: '9px', fontStyle: 'bold', color: '#e5e7eb' })
+      .setOrigin(0.5, 1).setDepth(50).setVisible(false);
 
     // Input
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -295,6 +304,23 @@ export class GameScene extends Phaser.Scene {
     if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 2 &&
         time - game.qDownTime >= 250) {
       game.wheelOpen = true;
+    }
+
+    // Tool wheel hover tracking
+    if (game.wheelOpen && game.player.tools.length >= 2) {
+      const pointer = this.input.activePointer;
+      const cx = VIEW_W / 2, cy = VIEW_H / 2;
+      const mdx = pointer.x - cx, mdy = pointer.y - cy;
+      const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+      const n = game.player.tools.length;
+      const sectorSize = (Math.PI * 2) / n;
+      if (mDist > 20) {
+        const mouseAngle = Math.atan2(mdy, mdx);
+        const adjusted = ((mouseAngle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        game.wheelHover = Math.floor(adjusted / sectorSize) % n;
+      } else {
+        game.wheelHover = 0;
+      }
     }
 
     game.cheeseCooldown = Math.max(0, game.cheeseCooldown - dt);
@@ -580,6 +606,8 @@ export class GameScene extends Phaser.Scene {
     // UI (screen-space)
     this.renderUI();
     this.renderDetectionOverlay();
+    this.renderProximityLabels();
+    if (game.wheelOpen) this.renderToolWheel();
 
     if (game.state === 'gameover') this.renderGameOver();
     if (game.state === 'win') this.renderWinScreen();
@@ -1001,6 +1029,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Gear icons (top-left, below keys)
+    this.gearText1.setVisible(false);
+    this.gearText2.setVisible(false);
+    if (p.gear.length > 0) {
+      for (let gi = 0; gi < p.gear.length; gi++) {
+        const gr = p.gear[gi];
+        const txt = gi === 0 ? this.gearText1 : this.gearText2;
+        txt.setX(12 + gi * 50).setText(gr === 'sneakers' ? 'SNEAK' : 'SHADE')
+          .setColor(gr === 'sneakers' ? '#4ade80' : '#a855f7').setVisible(true);
+      }
+    }
+
     // Hotbar
     const SLOT_SIZE = 34;
     const SLOT_GAP = 3;
@@ -1150,6 +1190,40 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  renderProximityLabels(): void {
+    const game = this.game_;
+    const p = game.player;
+    this.proximityText.setVisible(false);
+    if (p.hiding || p.looting || p.searching || game.state !== 'playing') return;
+
+    const INTERACT_RANGE = T * 1.8;
+
+    // Nearest container
+    for (const c of game.containers) {
+      if (!c.searched && dist(p, c) < INTERACT_RANGE) {
+        this.proximityText.setPosition(c.x, c.y - T).setText('[E] Search').setColor('#a78bfa').setVisible(true);
+        return;
+      }
+    }
+
+    // Nearest door
+    for (const d of game.doors) {
+      if (d.state === 'closed' && dist(p, d) < INTERACT_RANGE) {
+        this.proximityText.setPosition(d.x, d.y - T).setText('[E] Open').setColor('#fbbf24').setVisible(true);
+        return;
+      }
+    }
+
+    // Nearest tool pickup
+    for (const tp of game.toolPickups) {
+      if (!tp.collected && dist(p, tp) < INTERACT_RANGE) {
+        const tt = TOOL_TYPES[tp.type];
+        this.proximityText.setPosition(tp.x, tp.y - T).setText('[E] ' + tt.name).setColor('#c084fc').setVisible(true);
+        return;
+      }
+    }
+  }
+
   renderDetectionOverlay(): void {
     const det = this.game_.detection;
     if (det <= 20) return;
@@ -1161,6 +1235,76 @@ export class GameScene extends Phaser.Scene {
     this.overlayGfx.fillRect(0, VIEW_H - 40, VIEW_W, 40);
     this.overlayGfx.fillRect(0, 0, 40, VIEW_H);
     this.overlayGfx.fillRect(VIEW_W - 40, 0, 40, VIEW_H);
+  }
+
+  renderToolWheel(): void {
+    const game = this.game_;
+    const tools = game.player.tools;
+    if (tools.length < 2) return;
+
+    const g = this.overlayGfx;
+    const cx = VIEW_W / 2, cy = VIEW_H / 2;
+    const radius = 80;
+    const n = tools.length;
+    const sectorSize = (Math.PI * 2) / n;
+
+    // Dim overlay
+    g.fillStyle(0x000000, 0.45);
+    g.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    // Center ring
+    g.fillStyle(0x0e0e1a, 0.7);
+    g.fillCircle(cx, cy, radius + 30);
+    g.lineStyle(2, 0xc084fc, 0.3);
+    g.strokeCircle(cx, cy, radius + 30);
+
+    // Sector lines
+    g.lineStyle(1, 0xc084fc, 0.15);
+    for (let i = 0; i < n; i++) {
+      const ang = i * sectorSize - Math.PI / 2 - sectorSize / 2;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(cx + Math.cos(ang) * (radius + 30), cy + Math.sin(ang) * (radius + 30));
+      g.strokePath();
+    }
+
+    // Items
+    for (let i = 0; i < n; i++) {
+      const ang = i * sectorSize - Math.PI / 2;
+      const ix = cx + Math.cos(ang) * radius;
+      const iy = cy + Math.sin(ang) * radius;
+      const hovered = i === game.wheelHover;
+      const bgRadius = hovered ? 26 : 22;
+
+      g.fillStyle(hovered ? 0xc084fc : 0x1e1e2e, hovered ? 0.35 : 0.8);
+      g.fillCircle(ix, iy, bgRadius);
+      g.lineStyle(hovered ? 2.5 : 1, hovered ? 0xc084fc : 0x6b7280, hovered ? 1 : 0.5);
+      g.strokeCircle(ix, iy, bgRadius);
+
+      // Active indicator
+      if (i === 0) {
+        this.overlayPromptText.setPosition(ix, iy - bgRadius - 4)
+          .setText('active').setColor('#c084fc').setFontSize('7px')
+          .setAlpha(0.6).setVisible(true);
+      }
+    }
+
+    // Center text
+    this.overlayTitleText.setPosition(cx, cy)
+      .setText('SELECT').setColor('rgba(255,255,255,0.5)').setFontSize('9px')
+      .setVisible(true);
+
+    // Tool name labels as text objects — reuse statsText for hovered tool name
+    if (game.wheelHover >= 0 && game.wheelHover < tools.length) {
+      const tt = TOOL_TYPES[tools[game.wheelHover]];
+      const ang = game.wheelHover * sectorSize - Math.PI / 2;
+      const ix = cx + Math.cos(ang) * radius;
+      const iy = cy + Math.sin(ang) * radius;
+      const bgRadius = 26;
+      this.overlaySubText.setPosition(ix, iy + bgRadius + 12)
+        .setText(tt.name).setColor('#e9d5ff').setFontSize('10px')
+        .setVisible(true);
+    }
   }
 
   renderGameOver(): void {
