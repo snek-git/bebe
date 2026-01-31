@@ -1,7 +1,7 @@
 import {
   BABY_RADIUS, PLAYER_RADIUS, T,
   STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
-  TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL, TODDLER_ROOM_DWELL_MAX,
+  BOSS_SPEED, BOSS_CHASE_SPEED, BOSS_PATH_INTERVAL, BOSS_ROAM_INTERVAL, BOSS_ROOM_DWELL_MAX,
   VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
   DOOR_PUSH_TIME,
 } from '../config';
@@ -140,7 +140,7 @@ export function updateBabies(game: Game, dt: number): void {
     if (b.stunTimer > 0) {
       b.stunTimer -= dt;
       if (b.type === 'stawler') { b.chasing = false; b.vel = 0; }
-      if (b.type === 'toddler') { b.chasing = false; b.path = []; b.pathIndex = 0; }
+      if (b.type === 'boss') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       b.distracted = false;
       continue;
     }
@@ -156,13 +156,13 @@ export function updateBabies(game: Game, dt: number): void {
     if (attr) {
       b.distracted = true;
       if (b.type === 'stawler') b.chasing = false;
-      if (b.type === 'toddler') { b.chasing = false; b.path = []; b.pathIndex = 0; }
+      if (b.type === 'boss') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       const dx = attr.x - b.x, dy = attr.y - b.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d > 12) {
         if (b.type === 'stawler') {
           moveStawlerToward(b, attr.x, attr.y, b.speed * 0.55, dt, game.grid);
-        } else if (b.type === 'toddler') {
+        } else if (b.type === 'boss') {
           const nx = dx / d, ny = dy / d;
           b.x += nx * b.speed * 0.7 * dt;
           b.y += ny * b.speed * 0.7 * dt;
@@ -200,11 +200,11 @@ export function updateBabies(game: Game, dt: number): void {
       }
     }
 
-    if (b.type === 'toddler') {
+    if (b.type === 'boss') {
       b.pathTimer = (b.pathTimer ?? 0) - dt;
-      const toddlerTurn = BABY_TURN_RATE * 3 * dt;
+      const bossTurn = BABY_TURN_RATE * 3 * dt;
 
-      // Toddler catches player = instant bust
+      // Boss catches player = instant bust
       if (!b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 4) {
         game.state = 'gameover';
         game.gameOverTimer = 0;
@@ -216,7 +216,7 @@ export function updateBabies(game: Game, dt: number): void {
         b.chasing = true;
         b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
         b.pathIndex = 0;
-        b.pathTimer = TODDLER_PATH_INTERVAL;
+        b.pathTimer = BOSS_PATH_INTERVAL;
         b.pauseTimer = 0;
         continue;
       }
@@ -233,13 +233,13 @@ export function updateBabies(game: Game, dt: number): void {
           // Path to last seen position instead of giving up
           b.path = findPath(game.grid, b.x, b.y, b.lastSeenX, b.lastSeenY);
           b.pathIndex = 0;
-          b.pathTimer = TODDLER_ROAM_INTERVAL;
+          b.pathTimer = BOSS_ROAM_INTERVAL;
           b.pauseTimer = 0;
         } else {
           if (b.pathTimer! <= 0) {
             b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
             b.pathIndex = 0;
-            b.pathTimer = TODDLER_PATH_INTERVAL;
+            b.pathTimer = BOSS_PATH_INTERVAL;
           }
           if (b.path && b.path.length > 0 && b.pathIndex! < b.path.length) {
             const target = b.path[b.pathIndex!];
@@ -249,10 +249,10 @@ export function updateBabies(game: Game, dt: number): void {
               b.pathIndex = (b.pathIndex ?? 0) + 1;
             } else {
               const burst = 1.0 + 0.25 * Math.sin(game.time * 14);
-              b.x += (tdx / td) * TODDLER_CHASE_SPEED * burst * dt;
-              b.y += (tdy / td) * TODDLER_CHASE_SPEED * burst * dt;
+              b.x += (tdx / td) * BOSS_CHASE_SPEED * burst * dt;
+              b.y += (tdy / td) * BOSS_CHASE_SPEED * burst * dt;
               resolveWalls(game.grid, b);
-              b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), toddlerTurn);
+              b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), bossTurn);
             }
           }
           continue;
@@ -294,7 +294,7 @@ export function updateBabies(game: Game, dt: number): void {
       }
 
       const needsNewPath = b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length;
-      const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
+      const dwellExpired = (b.roomDwell ?? 0) >= BOSS_ROOM_DWELL_MAX;
       const investigating = b.lastSeenX != null && b.lastSeenY != null;
       if (!investigating && (dwellExpired || needsNewPath)) {
         // Try rooms until we get a valid path
@@ -307,7 +307,7 @@ export function updateBabies(game: Game, dt: number): void {
           if (path.length > 0) {
             b.path = path;
             b.pathIndex = 0;
-            b.pathTimer = TODDLER_ROAM_INTERVAL;
+            b.pathTimer = BOSS_ROAM_INTERVAL;
             b.pauseTimer = 0;
             found = true;
             break;
@@ -332,7 +332,7 @@ export function updateBabies(game: Game, dt: number): void {
           : b.facing;
         // Sharp snaps: left, right, left, right
         const snap = Math.sin(scanT * Math.PI * 3.5) * 1.5;
-        b.facing = rotateTowards(b.facing, fwd + snap, toddlerTurn * 2);
+        b.facing = rotateTowards(b.facing, fwd + snap, bossTurn * 2);
         continue;
       }
       if (b.pauseTimer >= SCAN_INTERVAL + SCAN_DURATION) {
@@ -351,11 +351,11 @@ export function updateBabies(game: Game, dt: number): void {
           const burst = 0.85 + 0.3 * Math.abs(Math.sin(game.time * 9 + b.y));
           const zigzag = Math.sin(game.time * 5) * 20;
           const nx = tdx / td, ny = tdy / td;
-          b.x += (nx * TODDLER_SPEED * burst - ny * zigzag) * dt;
-          b.y += (ny * TODDLER_SPEED * burst + nx * zigzag) * dt;
+          b.x += (nx * BOSS_SPEED * burst - ny * zigzag) * dt;
+          b.y += (ny * BOSS_SPEED * burst + nx * zigzag) * dt;
           resolveWalls(game.grid, b);
           const scanSnap = Math.sin(game.time * 5) * 0.8;
-          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx) + scanSnap, toddlerTurn);
+          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx) + scanSnap, bossTurn);
         }
       }
       continue;

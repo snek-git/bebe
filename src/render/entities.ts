@@ -6,7 +6,7 @@ import {
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
-import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame } from '../sprites';
+import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame, bossSpritesReady, getBossFrame } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
@@ -310,7 +310,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
     let bx = sx(b.x, game), by = sy(b.y, game);
 
     // Toddler shake
-    if (b.type === 'toddler' && !stunned) {
+    if (b.type === 'boss' && !stunned) {
       if (b.chasing) {
         bx += Math.sin(time * 45 + b.y * 7) * 3.0;
         by += Math.cos(time * 51 + b.x * 7) * 3.0;
@@ -324,7 +324,8 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
 
     // Body
     const useStawlerSprites = b.type === 'stawler' && stawlerSpritesReady();
-    if (useSprites || useStawlerSprites) {
+    const useBossSprites = b.type === 'boss' && bossSpritesReady();
+    if (useSprites || useStawlerSprites || useBossSprites) {
       const moving = b.pauseTimer <= 0 && !stunned;
       let frameIndex: number;
       if (moving) {
@@ -336,7 +337,9 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
           ? (tick === 0 ? 3 : 2)
           : (tick === 0 ? 1 : 0);
       }
-      const img = useStawlerSprites ? getStawlerFrame(frameIndex) : getBabyFrame(frameIndex);
+      const img = useBossSprites ? getBossFrame(frameIndex)
+        : useStawlerSprites ? getStawlerFrame(frameIndex)
+        : getBabyFrame(frameIndex);
       const half = SPRITE_SIZE / 2;
 
       ctx.save();
@@ -344,18 +347,12 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.rotate(b.facing + Math.PI / 2);
       if (stunned) ctx.globalAlpha = 0.5;
 
-      // Stawlers use their own sprites — no filter needed
-      if (b.type === 'toddler' && !stunned) {
-        ctx.filter = b.chasing ? 'hue-rotate(-40deg) saturate(1.8)' : 'hue-rotate(-30deg) saturate(1.4)';
-      }
-
       ctx.drawImage(img, -half, -half, SPRITE_SIZE, SPRITE_SIZE);
-      ctx.filter = 'none';
       ctx.restore();
     } else {
       // Fallback procedural rendering — crayon style
-      const colors: Record<string, string> = { crawler: '#fb923c', stawler: '#ec4899', toddler: '#dc2626' };
-      const strokeColors: Record<string, string> = { crawler: '#fdba74', stawler: '#f9a8d4', toddler: '#f87171' };
+      const colors: Record<string, string> = { crawler: '#fb923c', stawler: '#ec4899', boss: '#dc2626' };
+      const strokeColors: Record<string, string> = { crawler: '#fdba74', stawler: '#f9a8d4', boss: '#f87171' };
       const bodyColor = stunned ? '#888' : (colors[b.type] || '#fb923c');
       const outlineColor = stunned ? '#aaa' : (strokeColors[b.type] || '#fdba74');
       crayonCircle(ctx, bx, by, BABY_RADIUS, {
@@ -402,7 +399,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
         fill: '#f472b6', font: 'bold 12px monospace', align: 'center', baseline: 'alphabetic',
       });
     }
-    if (b.type === 'toddler' && b.chasing && !stunned) {
+    if (b.type === 'boss' && b.chasing && !stunned) {
       crayonText(ctx, '!!', bx, by - indY, {
         fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
       });

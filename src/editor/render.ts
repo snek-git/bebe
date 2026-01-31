@@ -184,7 +184,7 @@ function renderBabies(ctx: CanvasRenderingContext2D, state: EditorState): void {
     }
 
     // Baby circle
-    const colors: Record<string, string> = { crawler: '#f59e0b', stawler: '#ec4899', toddler: '#ef4444' };
+    const colors: Record<string, string> = { crawler: '#f59e0b', stawler: '#ec4899', boss: '#ef4444' };
     ctx.fillStyle = sel ? '#4a9eff' : (colors[b.type] || '#f59e0b');
     ctx.beginPath();
     ctx.arc(px, py, 8, 0, Math.PI * 2);

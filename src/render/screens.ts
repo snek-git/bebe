@@ -241,7 +241,7 @@ export function renderTitle(ctx: CanvasRenderingContext2D): void {
   const intelLines: { text: string; color: string }[] = [
     { text: 'ORANGE crawlers patrol set paths', color: '#fb923c' },
     { text: 'PINK stawlers charge while you hide', color: '#ec4899' },
-    { text: 'RED toddler hunts you down', color: '#dc2626' },
+    { text: 'RED boss baby hunts you down', color: '#dc2626' },
     { text: '', color: '' },
     { text: 'Find 3 keycards to open the vault', color: SK.primary },
     { text: 'Sprint into doors to SLAM (stun!)', color: SK.primary },

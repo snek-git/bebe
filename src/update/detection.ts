@@ -12,7 +12,7 @@ export function updateDetection(game: Game, dt: number): void {
 
   for (const b of game.babies) {
     if (b.distracted) continue;
-    if (b.type === 'toddler') continue;
+    if (b.type === 'boss') continue;
     if (canBabySee(game, b) && !p.hiding) {
       seen = true;
       break;

@@ -37,7 +37,7 @@ export function updateProjectiles(game: Game, dt: number): void {
       for (const b of game.babies) {
         if (b.stunTimer > 0) continue;
         if (dist(c, b) < BABY_RADIUS + 6) {
-          if (b.type === 'toddler' && !c.isPacifier) {
+          if (b.type === 'boss' && !c.isPacifier) {
             if (Math.random() < 0.5) {
               c.landed = true;
               c.timer = 0.5;

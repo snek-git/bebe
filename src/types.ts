@@ -110,7 +110,7 @@ export interface Player {
   searching: boolean;
 }
 
-export type BabyType = 'crawler' | 'stawler' | 'toddler';
+export type BabyType = 'crawler' | 'stawler' | 'boss';
 
 export interface Baby {
   x: number;

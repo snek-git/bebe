@@ -161,7 +161,7 @@ export function initGame(): Game {
     if (bd.type === 'stawler') {
       base.chasing = false;
     }
-    if (bd.type === 'toddler') {
+    if (bd.type === 'boss') {
       base.chasing = false;
       base.path = [];
       base.pathIndex = 0;

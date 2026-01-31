@@ -98,7 +98,7 @@ export function updatePanel(container: HTMLElement, state: EditorState): void {
   else if (kind === 'baby' && state.babies[index]) {
     const b = state.babies[index];
     addText(container, 'BABY', `${b.type} in ${b.room}`);
-    addSelect(container, 'type', b.type, ['crawler', 'stawler', 'toddler'],
+    addSelect(container, 'type', b.type, ['crawler', 'stawler', 'boss'],
       v => { pushUndo(state); b.type = v as any; });
     addSelect(container, 'room', b.room,
       state.rooms.map(r => r.id),

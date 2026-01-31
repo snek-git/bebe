@@ -105,12 +105,12 @@ export const BABY_DEFS: BabyDef[] = [
   // C2 Safe Deposit: 1 stawler patrolling between shelf rows
   { room: 'safe_dep', dx: 0, dy: -1, type: 'stawler', speed: 90, facing: 0, pauseTime: 2.0,
     waypoints: [{ dx: -2, dy: -1 }, { dx: 2, dy: -1 }] },
-  // Vault: 1 crawler + 1 stawler + 1 toddler
+  // Vault: 1 crawler + 1 stawler + 1 boss
   { room: 'vault', dx: -3, dy: 0, type: 'crawler', speed: 46, facing: 0, pauseTime: 2.0,
     waypoints: [{ dx: -5, dy: -1 }, { dx: 5, dy: -1 }, { dx: 5, dy: 2 }, { dx: -5, dy: 2 }] },
   { room: 'vault', dx: 3, dy: 0, type: 'stawler', speed: 90, facing: Math.PI, pauseTime: 2.2,
     waypoints: [{ dx: -3, dy: 0 }, { dx: 3, dy: 0 }] },
-  { room: 'vault', dx: 0, dy: 0, type: 'toddler', speed: 80, facing: 0, pauseTime: 0,
+  { room: 'vault', dx: 0, dy: 0, type: 'boss', speed: 80, facing: 0, pauseTime: 0,
     waypoints: [], roamRoom: 'vault' },
 ];
 

@@ -15,26 +15,35 @@ type KeyHandler = (e: KeyboardEvent) => void;
 let keyDownHandler: KeyHandler | null = null;
 let keyUpHandler: KeyHandler | null = null;
 
-export function initInput(canvas: HTMLCanvasElement): void {
-  document.addEventListener('keydown', (e) => {
-    state.keys[e.key.toLowerCase()] = true;
-    state.keys[e.code] = true;
-    if (e.code === 'Space') e.preventDefault();
-    keyDownHandler?.(e);
+let _scene: Phaser.Scene | null = null;
+let _canvas: HTMLCanvasElement | null = null;
+
+export function initInput(scene: Phaser.Scene): void {
+  _scene = scene;
+
+  // Get the canvas element from Phaser's game
+  _canvas = scene.game.canvas;
+
+  // Keyboard input via Phaser - listen for native events to maintain compatibility
+  scene.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
+    state.keys[event.key.toLowerCase()] = true;
+    state.keys[event.code] = true;
+    if (event.code === 'Space') event.preventDefault();
+    keyDownHandler?.(event);
   });
 
-  document.addEventListener('keyup', (e) => {
-    state.keys[e.key.toLowerCase()] = false;
-    state.keys[e.code] = false;
-    keyUpHandler?.(e);
+  scene.input.keyboard!.on('keyup', (event: KeyboardEvent) => {
+    state.keys[event.key.toLowerCase()] = false;
+    state.keys[event.code] = false;
+    keyUpHandler?.(event);
   });
 
-  canvas.addEventListener('mousemove', (e) => {
-    const r = canvas.getBoundingClientRect();
-    state.mouse.x = (e.clientX - r.left) * (VIEW_W / r.width);
-    state.mouse.y = (e.clientY - r.top) * (VIEW_H / r.height);
+  // Mouse tracking via Phaser's pointer
+  scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+    // pointer.x/y are already in game coordinate space (Phaser handles scaling)
+    state.mouse.x = pointer.x;
+    state.mouse.y = pointer.y;
   });
-
 }
 
 export function isDown(key: string): boolean {
@@ -61,19 +70,9 @@ export function onKeyUp(handler: KeyHandler): void {
 }
 
 export function addClickHandler(canvas: HTMLCanvasElement, handler: (worldX: number, worldY: number) => void, camera: Camera): void {
-  canvas.addEventListener('click', (e) => {
-    const r = canvas.getBoundingClientRect();
-    const wx = (e.clientX - r.left) * (VIEW_W / r.width) + camera.x;
-    const wy = (e.clientY - r.top) * (VIEW_H / r.height) + camera.y;
-    handler(wx, wy);
-  });
+  // Not used in Phaser migration - click handling done via scene.input.on('pointerdown')
 }
 
 export function addScreenClickHandler(canvas: HTMLCanvasElement, handler: (screenX: number, screenY: number) => void): void {
-  canvas.addEventListener('click', (e) => {
-    const r = canvas.getBoundingClientRect();
-    const sx = (e.clientX - r.left) * (VIEW_W / r.width);
-    const sy = (e.clientY - r.top) * (VIEW_H / r.height);
-    handler(sx, sy);
-  });
+  // Not used in Phaser migration - click handling done via scene.input.on('pointerdown')
 }
