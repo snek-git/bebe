@@ -310,7 +310,7 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
     drawCheeseShape(ctx, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2, 10); // Moved icon slightly down
     ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace';
     // Draw count at the top of the icon area
-    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 8);
+    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 12);
 
     ctx.fillStyle = SK.highlight; ctx.font = '7px monospace';
     ctx.fillText('cheese', csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);

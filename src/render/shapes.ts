@@ -208,31 +208,25 @@ export function drawLootShape(ctx: CanvasRenderingContext2D, px: number, py: num
 }
 
 export function drawCheeseShape(ctx: CanvasRenderingContext2D, px: number, py: number, s: number): void {
-  // Triangular wedge
-  ctx.fillStyle = '#fde047';
+  // American cheese slice (Square, no holes)
+  const size = s * 1.6;
+  const x = px - size / 2;
+  const y = py - size / 2;
+
+  ctx.fillStyle = '#fbbf24'; // Warmer orange-yellow
   ctx.beginPath();
-  // Isosceles(-ish) triangle pointing up-left
-  const half = s * 0.8;
-  ctx.moveTo(px - half, py - half * 0.5);
-  ctx.lineTo(px + half, py - half * 0.5);
-  ctx.lineTo(px, py + half);
-  ctx.closePath();
+  // Rounded square
+  const r = size * 0.1;
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + size - r, y); ctx.quadraticCurveTo(x + size, y, x + size, y + r);
+  ctx.lineTo(x + size, y + size - r); ctx.quadraticCurveTo(x + size, y + size, x + size - r, y + size);
+  ctx.lineTo(x + r, y + size); ctx.quadraticCurveTo(x, y + size, x, y + size - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.fill();
 
-  // 3D side (thickness)
-  ctx.fillStyle = '#f59e0b';
+  // Shiny highlight
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.beginPath();
-  ctx.moveTo(px, py + half);
-  ctx.lineTo(px + half, py - half * 0.5);
-  ctx.lineTo(px + half, py - half * 0.5 + s * 0.3);
-  ctx.lineTo(px, py + half + s * 0.3);
-  ctx.closePath();
+  ctx.ellipse(x + size * 0.3, y + size * 0.3, size * 0.15, size * 0.1, -Math.PI / 4, 0, Math.PI * 2);
   ctx.fill();
-
-  // Holes on top face
-  ctx.fillStyle = '#eab308';
-  const size = s * 0.8;
-  ctx.beginPath(); ctx.arc(px, py, size * 0.15, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(px - size * 0.3, py - size * 0.2, size * 0.1, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(px + size * 0.2, py - size * 0.3, size * 0.12, 0, Math.PI * 2); ctx.fill();
 }
