@@ -61,3 +61,12 @@ export function addClickHandler(canvas: HTMLCanvasElement, handler: (worldX: num
     handler(wx, wy);
   });
 }
+
+export function addScreenClickHandler(canvas: HTMLCanvasElement, handler: (screenX: number, screenY: number) => void): void {
+  canvas.addEventListener('click', (e) => {
+    const r = canvas.getBoundingClientRect();
+    const sx = (e.clientX - r.left) * (VIEW_W / r.width);
+    const sy = (e.clientY - r.top) * (VIEW_H / r.height);
+    handler(sx, sy);
+  });
+}

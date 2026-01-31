@@ -49,14 +49,33 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.fillStyle = p.peekExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
   ctx.fillRect(pbx, pby, pbw * stPct, pbh);
   ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1; ctx.strokeRect(pbx, pby, pbw, pbh);
-  ctx.textAlign = 'right'; ctx.font = '8px monospace';
-  ctx.fillStyle = p.peekExhausted ? '#ef4444' : '#9ca3af';
-  ctx.fillText(p.peekExhausted ? 'EXHAUSTED' : 'BREATH', pbx + pbw, pby - 3);
+  const showPulse = p.hiding && game.peekabooPulseTimer > 0;
+  if (!showPulse) {
+    ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = p.peekExhausted ? '#ef4444' : '#9ca3af';
+    ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
+    ctx.textAlign = 'right';
+  }
 
   // Status text
   ctx.textAlign = 'right'; ctx.font = '10px monospace';
-  if (p.hiding) { ctx.fillStyle = '#4ade80'; ctx.fillText('PEEKABOO!', VIEW_W - 12, 22); }
-  else if (p.looting) { ctx.fillStyle = '#fbbf24'; ctx.fillText('LOOTING...', VIEW_W - 12, 22); }
+  if (showPulse) {
+    const t = Math.max(0, Math.min(1, game.peekabooPulseTimer / 2.0));
+    const wave = (Math.sin(time * 10) + 1) / 2;
+    const size = 9 + Math.round(wave * 2);
+    ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
+    ctx.fillStyle = '#4ade80';
+    ctx.font = `bold ${size}px monospace`;
+    ctx.shadowColor = 'rgba(74, 222, 128, 0.5)';
+    ctx.shadowBlur = 4 + wave * 4;
+    ctx.textAlign = 'center';
+    ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'right';
+  } else if (p.looting) {
+    ctx.fillStyle = '#fbbf24'; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
+  }
 
   // Controls help
   ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace';

@@ -135,6 +135,10 @@ export interface Game {
   detection: number;
   cheeseCooldown: number;
   gameOverTimer: number;
+  retryPressTimer: number;
+  retryFadeTimer: number;
+  retryPending: boolean;
+  peekabooPulseTimer: number;
   time: number;
   camera: Camera;
 }

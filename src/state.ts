@@ -95,6 +95,10 @@ export function initGame(): Game {
     detection: 0,
     cheeseCooldown: 0,
     gameOverTimer: 0,
+    retryPressTimer: 0,
+    retryFadeTimer: 0,
+    retryPending: false,
+    peekabooPulseTimer: 0,
     time: 0,
     camera: { x: player.x - VIEW_W / 2, y: player.y - VIEW_H / 2 },
   };

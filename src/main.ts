@@ -1,14 +1,17 @@
 import { VIEW_W, VIEW_H, CHEESE_COOLDOWN, CHEESE_SPEED, TV_DURATION, DISTRACTION_DURATION } from './config';
 import { initGame } from './state';
-import { initInput, isDown, onKeyDown, addClickHandler, mouseWorld } from './input';
+import { initInput, isDown, onKeyDown, addClickHandler, addScreenClickHandler, mouseWorld } from './input';
 import { updatePlayer } from './update/player';
 import { updateBabies } from './update/babies';
 import { updateProjectiles } from './update/projectiles';
 import { updateDetection } from './update/detection';
 import { updateDistractions, updateTVs, checkPickups, checkWin, updateCamera } from './update/world';
 import { render } from './render/index';
+import { retryButtonRect, RETRY_APPEAR_TIME, RETRY_PRESS_DURATION, RETRY_FADE_DURATION } from './render/screens';
 import { dist } from './utils';
 import type { Game } from './types';
+
+const PEEKABOO_PULSE_DURATION = 2.0;
 
 const canvas = document.getElementById('c') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -69,6 +72,10 @@ onKeyDown((e) => {
       });
     }
   }
+
+  if (game.state === 'playing' && e.code === 'Space') {
+    game.peekabooPulseTimer = PEEKABOO_PULSE_DURATION;
+  }
 });
 
 addClickHandler(canvas, (worldX, worldY) => {
@@ -83,10 +90,37 @@ addClickHandler(canvas, (worldX, worldY) => {
   });
 }, game.camera);
 
+addScreenClickHandler(canvas, (screenX, screenY) => {
+  if (game.state !== 'gameover' || game.gameOverTimer <= RETRY_APPEAR_TIME) return;
+  const btn = retryButtonRect();
+  if (screenX >= btn.x && screenX <= btn.x + btn.w && screenY >= btn.y && screenY <= btn.y + btn.h) {
+    game.retryPressTimer = RETRY_PRESS_DURATION;
+    game.retryFadeTimer = RETRY_FADE_DURATION;
+    game.retryPending = true;
+  }
+});
+
 function update(dt: number): void {
   if (game.state !== 'playing' && game.state !== 'gameover') return;
   game.time += dt;
-  if (game.state === 'gameover') { game.gameOverTimer += dt; return; }
+  if (game.state === 'gameover') {
+    game.gameOverTimer += dt;
+    if (game.retryPressTimer > 0) {
+      game.retryPressTimer = Math.max(0, game.retryPressTimer - dt);
+    }
+    if (game.retryFadeTimer > 0) {
+      game.retryFadeTimer = Math.max(0, game.retryFadeTimer - dt);
+      if (game.retryFadeTimer === 0 && game.retryPending) {
+        game = initGame();
+        game.state = 'playing';
+      }
+    }
+    return;
+  }
+
+  if (game.peekabooPulseTimer > 0) {
+    game.peekabooPulseTimer = Math.max(0, game.peekabooPulseTimer - dt);
+  }
 
   game.cheeseCooldown = Math.max(0, game.cheeseCooldown - dt);
   updatePlayer(game, dt);
