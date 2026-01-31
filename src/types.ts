@@ -239,6 +239,14 @@ export interface NoiseEvent {
   timer: number;
 }
 
+export interface MinimapCloud {
+  tx: number;       // tile-space center X
+  ty: number;       // tile-space center Y
+  r: number;        // base radius in minimap-pixels (5-9)
+  dissolve: number; // 0 = opaque, >=1 = gone
+  seed: number;     // deterministic shape/color variation
+}
+
 export interface Game {
   state: GameState;
   grid: number[][];
@@ -262,7 +270,7 @@ export interface Game {
   retryFadeTimer: number;
   retryPending: boolean;
   peekabooPulseTimer: number;
-  minimapSeen: boolean[][];
+  minimapClouds: MinimapCloud[];
   wheelOpen: boolean;
   wheelHover: number;
   qDownTime: number;

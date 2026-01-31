@@ -362,50 +362,96 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
     }
   }
 
-  // Minimap fog-of-war: permanently reveal camera-seen tiles, cover unseen in white
-  ctx.save();
-  ctx.beginPath();
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      if (game.minimapSeen[y]?.[x]) continue;
-      ctx.rect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
+  // Minimap fog-of-war: rough 5px pen crayon clouds that dissolve when camera reveals them
+  const PUFF_COLORS = [
+    [180, 190, 200], // cool gray
+    [165, 175, 185], // medium slate
+    [195, 200, 210], // light steel
+    [170, 180, 192], // dusty gray
+    [190, 195, 205], // silver
+  ];
+  // Seed-based pseudo-random (deterministic per-cloud, no flicker)
+  function srand(n: number): number { n = Math.sin(n) * 43758.5453; return n - Math.floor(n); }
+
+  for (const cloud of game.minimapClouds) {
+    if (cloud.dissolve >= 1) continue;
+    const d = cloud.dissolve;
+    let scale: number, alpha: number;
+    if (d < 0.15) {
+      scale = 1.0 + (d / 0.15) * 0.2;
+      alpha = 1;
+    } else {
+      const t2 = (d - 0.15) / 0.85;
+      scale = 1.2 * (1 - t2);
+      alpha = 1 - t2;
     }
-  }
-  ctx.clip();
-  ctx.fillStyle = '#f8fafc';
-  ctx.fillRect(mmX, mmY, mmW, mmH);
-  const t = game.time;
-  const step = 10;
-  const offsetX = (t * 6) % step;
-  const offsetY = (t * 5) % step;
-  for (let y = mmY - step; y < mmY + mmH + step; y += step) {
-    for (let x = mmX - step; x < mmX + mmW + step; x += step) {
-      const i = Math.floor((x + y) / step);
-      const driftX = Math.sin(t * 0.35 + i) * 1.5;
-      const driftY = Math.cos(t * 0.28 + i * 1.7) * 1.5;
-      const cx = x + offsetX + driftX;
-      const cy = y + offsetY + driftY;
-      const r1 = 4 + (i % 3);
-      const r2 = 6 + ((i + 1) % 3);
-      const pick = i % 5;
-      ctx.fillStyle =
-        pick === 0 ? 'rgba(226,232,240,0.75)' :
-        pick === 1 ? 'rgba(203,213,225,0.6)' :
-        pick === 2 ? '#eef2f6' :
-        pick === 3 ? '#f1f5f9' :
-        'rgba(241,245,249,0.85)';
+    if (alpha <= 0) continue;
+    const s = cloud.seed;
+    const ccx = mmX + cloud.tx * mmS;
+    const ccy = mmY + cloud.ty * mmS;
+    const r = cloud.r * scale;
+    const jx = Math.sin(game.time * 7.3 + s) * 0.5;
+    const jy = Math.cos(game.time * 6.1 + s * 1.3) * 0.5;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Puff positions around center
+    const puffs = [
+      { dx: 0,                           dy: 0,                          rMul: 1.0 },
+      { dx:  ((s % 7) - 3) * 1.4,       dy: -((s % 5) - 2) * 1.2,     rMul: 0.9 },
+      { dx: -((s % 6) - 3) * 1.3,       dy:  ((s % 4) - 2) * 1.3,     rMul: 0.85 },
+      { dx:  ((s % 9) - 4) * 1.1,       dy:  ((s % 7) - 3) * 1.0,     rMul: 0.8 },
+      { dx: -((s % 5) - 2) * 1.5,       dy: -((s % 6) - 3) * 1.1,     rMul: 0.75 },
+      { dx: (((s * 3) % 7) - 3) * 1.2,  dy: (((s * 7) % 5) - 2) * 1.4, rMul: 0.7 },
+    ];
+
+    for (let i = 0; i < puffs.length; i++) {
+      const p = puffs[i];
+      const pcx = ccx + p.dx * scale + jx;
+      const pcy = ccy + p.dy * scale + jy;
+      const pr = r * p.rMul;
+      const [cr, cg, cb] = PUFF_COLORS[(s + i) % PUFF_COLORS.length];
+
+      // Pass 1: thick filled scribble rings (inner→outer) to fill the puff mass
+      for (let ring = 0; ring < 3; ring++) {
+        const ringR = pr * (0.25 + ring * 0.35);
+        const pts = 10;
+        const h = s * 13 + i * 7 + ring * 31; // deterministic hash per ring
+        ctx.globalAlpha = alpha * (0.5 + srand(h + 1) * 0.3);
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},1)`;
+        ctx.lineWidth = 4.5 + (srand(h + 2) - 0.5) * 2;
+        ctx.beginPath();
+        for (let k = 0; k <= pts; k++) {
+          const a = (k / pts) * Math.PI * 2;
+          const wobble = ringR + (srand(h + k * 3) - 0.5) * 3;
+          const px = pcx + Math.cos(a) * wobble;
+          const py = pcy + Math.sin(a) * wobble;
+          k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // Pass 2: second rough outline at full radius for chunky edge
+      const h2 = s * 17 + i * 11;
+      ctx.globalAlpha = alpha * (0.35 + srand(h2) * 0.25);
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},1)`;
+      ctx.lineWidth = 5 + (srand(h2 + 5) - 0.5) * 2;
       ctx.beginPath();
-      ctx.arc(cx, cy, r1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx + r1, cy - 1, r2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx - r1 * 0.6, cy + 1, r2 - 1, 0, Math.PI * 2);
-      ctx.fill();
+      const pts2 = 12;
+      for (let k = 0; k <= pts2; k++) {
+        const a = (k / pts2) * Math.PI * 2;
+        const wobble = pr + (srand(h2 + k * 5) - 0.5) * 2.5;
+        const px = pcx + Math.cos(a) * wobble;
+        const py = pcy + Math.sin(a) * wobble;
+        k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
     }
+    ctx.globalAlpha = 1;
   }
-  ctx.restore();
 
   ctx.strokeStyle = 'rgba(72,129,140,0.35)'; ctx.lineWidth = 1;
   ctx.strokeRect(

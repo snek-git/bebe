@@ -182,7 +182,7 @@ function update(dt: number): void {
   updateDetection(game, dt);
   checkPickups(game);
   checkWin(game);
-  updateMinimapSeen(game);
+  updateMinimapSeen(game, dt);
   updateCamera(game, dt);
 }
 
