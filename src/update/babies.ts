@@ -5,6 +5,14 @@ import {
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
 import type { Game, Baby, Point } from '../types';
 
+const BABY_TURN_RATE = 6.0; // radians per second
+
+function rotateTowards(current: number, target: number, maxDelta: number): number {
+  const d = angleDiff(target, current);
+  if (Math.abs(d) <= maxDelta) return target;
+  return current + Math.sign(d) * maxDelta;
+}
+
 function nearestAttraction(game: Game, b: Baby): Point | null {
   let best: Point | null = null;
   let bestDist = Infinity;
@@ -53,6 +61,8 @@ export function updateBabies(game: Game, dt: number): void {
   const p = game.player;
 
   for (const b of game.babies) {
+    const turn = BABY_TURN_RATE * dt;
+
     if (b.stunTimer > 0) {
       b.stunTimer -= dt;
       if (b.crawler) b.chasing = false;
@@ -71,7 +81,7 @@ export function updateBabies(game: Game, dt: number): void {
         b.y += (dy / d) * b.speed * 0.7 * dt;
         resolveWalls(game.grid, b);
       }
-      b.facing = Math.atan2(dy, dx);
+      b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
       b.pauseTimer = 0;
       continue;
     }
@@ -88,7 +98,7 @@ export function updateBabies(game: Game, dt: number): void {
           b.y += (dy / d) * CRAWLER_SPEED * dt;
           resolveWalls(game.grid, b);
         }
-        b.facing = Math.atan2(dy, dx);
+        b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
         b.pauseTimer = 0;
         continue;
       } else {
@@ -104,10 +114,12 @@ export function updateBabies(game: Game, dt: number): void {
       const nw = b.waypoints[(b.wpIndex + 1) % b.waypoints.length];
       const toN = Math.atan2(nw.y - b.y, nw.x - b.x);
       const ph = b.pauseTimer / b.pauseTime;
-      if (ph < 0.35) b.facing = toN;
-      else if (ph < 0.6) b.facing = toN + Math.PI / 2;
-      else if (ph < 0.85) b.facing = toN - Math.PI / 2;
-      else b.facing = toN;
+      let target = toN;
+      if (ph < 0.35) target = toN;
+      else if (ph < 0.6) target = toN + Math.PI / 2;
+      else if (ph < 0.85) target = toN - Math.PI / 2;
+      else target = toN;
+      b.facing = rotateTowards(b.facing, target, turn);
       if (b.pauseTimer >= b.pauseTime) {
         b.wpIndex = (b.wpIndex + 1) % b.waypoints.length;
         b.pauseTimer = 0;
@@ -115,7 +127,7 @@ export function updateBabies(game: Game, dt: number): void {
     } else {
       b.x += (dx / d) * b.speed * dt;
       b.y += (dy / d) * b.speed * dt;
-      b.facing = Math.atan2(dy, dx);
+      b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
       b.pauseTimer = 0;
       resolveWalls(game.grid, b);
     }
