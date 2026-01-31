@@ -1,5 +1,5 @@
 import {
-  PLAYER_SPEED, SPRINT_SPEED, PEEKABOO_MAX, PEEKABOO_RECHARGE, LOOT_TIME,
+  PLAYER_SPEED, SPRINT_SPEED, STAMINA_MAX, STAMINA_RECHARGE, SPRINT_DRAIN, LOOT_TIME,
   SEARCH_TIME, T, SPRINT_NOISE_RANGE, SLAM_NOISE_RANGE,
   DOOR_SLAM_STUN, NOISE_DURATION, BABY_RADIUS, SUNGLASSES_DRAIN_MULT,
 } from '../config';
@@ -13,19 +13,17 @@ export function updatePlayer(game: Game, dt: number): void {
 
   const drainMult = p.gear.includes('sunglasses') ? SUNGLASSES_DRAIN_MULT : 1.0;
 
-  if (isDown('Space') && !p.looting && !p.searching && !p.peekExhausted && p.peekStamina > 0) {
+  if (isDown('Space') && !p.looting && !p.searching && !p.staminaExhausted && p.stamina > 0) {
     p.hiding = true;
     p.vx = 0;
     p.vy = 0;
-    p.peekStamina = Math.max(0, p.peekStamina - dt * drainMult);
-    if (p.peekStamina <= 0) {
-      p.peekExhausted = true;
+    p.stamina = Math.max(0, p.stamina - dt * drainMult);
+    if (p.stamina <= 0) {
+      p.staminaExhausted = true;
       p.hiding = false;
     }
   } else {
     p.hiding = false;
-    p.peekStamina = Math.min(PEEKABOO_MAX, p.peekStamina + dt * PEEKABOO_RECHARGE);
-    if (p.peekExhausted && p.peekStamina >= PEEKABOO_MAX * 0.4) p.peekExhausted = false;
   }
 
   if (game.wheelOpen) {
@@ -33,8 +31,9 @@ export function updatePlayer(game: Game, dt: number): void {
     p.vy = 0;
   }
 
-  // Sprint detection
-  p.sprinting = isDown('ShiftLeft') || isDown('ShiftRight') || isDown('shift');
+  // Sprint detection — requires stamina
+  const wantSprint = isDown('ShiftLeft') || isDown('ShiftRight') || isDown('shift');
+  p.sprinting = wantSprint && !p.staminaExhausted && p.stamina > 0;
 
   if (!p.hiding && !p.looting && !p.searching && !game.wheelOpen) {
     let dx = 0, dy = 0;
@@ -48,14 +47,28 @@ export function updatePlayer(game: Game, dt: number): void {
     p.vy = dy * speed;
     if (dx || dy) p.facing = Math.atan2(dy, dx);
 
-    // Sprint noise
+    // Sprint stamina drain (only when actually moving)
     if (p.sprinting && (dx || dy)) {
+      p.stamina = Math.max(0, p.stamina - dt * SPRINT_DRAIN);
+      if (p.stamina <= 0) {
+        p.sprinting = false;
+        p.staminaExhausted = true;
+      }
+
+      // Sprint noise
       game.noiseEvents.push({
         x: p.x, y: p.y,
         radius: SPRINT_NOISE_RANGE,
         timer: NOISE_DURATION * 0.3,
       });
     }
+  }
+
+  // Stamina recharge: when not hiding and not actively sprinting-with-movement
+  const activelySprintMoving = p.sprinting && (p.vx || p.vy);
+  if (!p.hiding && !activelySprintMoving) {
+    p.stamina = Math.min(STAMINA_MAX, p.stamina + dt * STAMINA_RECHARGE);
+    if (p.staminaExhausted && p.stamina >= STAMINA_MAX * 0.4) p.staminaExhausted = false;
   }
 
   // Loot grabbing (from loot items on ground)

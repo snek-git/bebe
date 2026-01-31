@@ -1,5 +1,5 @@
 import {
-  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, PEEKABOO_MAX,
+  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, STAMINA_MAX,
   TV_DURATION, TV_RANGE, DISTRACTION_DURATION, DISTRACTION_RANGE,
   VIEW_W, VIEW_H, LOOT_TYPES, TOOL_TYPES,
 } from '../config';
@@ -412,7 +412,7 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   const px = sx(p.x, game), py = sy(p.y, game) + bob;
 
   if (p.hiding) {
-    const stPct = p.peekStamina / PEEKABOO_MAX;
+    const stPct = p.stamina / STAMINA_MAX;
     const flicker = stPct < 0.3 ? (Math.sin(time * 12) * 0.15 + 0.45) : 0.6;
     ctx.globalAlpha = flicker;
     const bodyColor = stPct < 0.3 ? '#a3e635' : '#22c55e';
@@ -447,26 +447,28 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.arc(e2x + Math.cos(p.facing) * 0.8, e2y + Math.sin(p.facing) * 0.8, 1.2, 0, Math.PI * 2); ctx.fill();
   }
 
-  // Progress bars — crayon style
+  // Progress bars — crayon style (matches UI peekaboo bar pattern)
   if (p.looting) {
     const pct = 1 - p.lootTimer / LOOT_TIME;
-    const bw = 30, bh = 4;
-    sketchyRect(ctx, px - bw / 2, py - PLAYER_RADIUS - 14, bw, bh, {
-      fill: 'rgba(0,0,0,0.6)', lineWidth: 1, jitterAmt: 0.3, grain: false,
-    });
-    sketchyRect(ctx, px - bw / 2, py - PLAYER_RADIUS - 14, bw * pct, bh, {
-      fill: '#fbbf24', lineWidth: 1, jitterAmt: 0.3, grain: false,
+    const bw = 34, bh = 6, bx = px - bw / 2, by = py - PLAYER_RADIUS - 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+    ctx.fillStyle = 'rgba(20,57,94,0.85)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#fbbf24'; ctx.fillRect(bx, by, bw * pct, bh);
+    sketchyRect(ctx, bx, by, bw, bh, { stroke: 'rgba(251,191,36,0.5)', lineWidth: 2, jitterAmt: 0.4, grain: false });
+    crayonText(ctx, 'grab', px, by - 3, {
+      fill: 'rgba(251,191,36,0.8)', font: 'bold 7px monospace', align: 'center', baseline: 'alphabetic', jitterAmt: 0.2,
     });
   }
 
   if (p.searching) {
     const pct = 1 - p.searchTimer / SEARCH_TIME;
-    const bw = 30, bh = 4;
-    sketchyRect(ctx, px - bw / 2, py - PLAYER_RADIUS - 14, bw, bh, {
-      fill: 'rgba(0,0,0,0.6)', lineWidth: 1, jitterAmt: 0.3, grain: false,
-    });
-    sketchyRect(ctx, px - bw / 2, py - PLAYER_RADIUS - 14, bw * pct, bh, {
-      fill: '#a78bfa', lineWidth: 1, jitterAmt: 0.3, grain: false,
+    const bw = 34, bh = 6, bx = px - bw / 2, by = py - PLAYER_RADIUS - 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+    ctx.fillStyle = 'rgba(20,57,94,0.85)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#a78bfa'; ctx.fillRect(bx, by, bw * pct, bh);
+    sketchyRect(ctx, bx, by, bw, bh, { stroke: 'rgba(167,139,250,0.5)', lineWidth: 2, jitterAmt: 0.4, grain: false });
+    crayonText(ctx, 'search', px, by - 3, {
+      fill: 'rgba(167,139,250,0.8)', font: 'bold 7px monospace', align: 'center', baseline: 'alphabetic', jitterAmt: 0.2,
     });
   }
 }

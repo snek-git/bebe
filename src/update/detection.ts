@@ -19,8 +19,8 @@ export function updateDetection(game: Game, dt: number): void {
     }
     if (b.type === 'stawler' && b.chasing && !b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 8) {
       p.hiding = false;
-      p.peekStamina = 0;
-      p.peekExhausted = true;
+      p.stamina = 0;
+      p.staminaExhausted = true;
       seen = true;
       break;
     }

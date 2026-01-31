@@ -1,5 +1,5 @@
 import {
-  BABY_RADIUS, PEEKABOO_MAX, PLAYER_RADIUS, T, VIEW_H, VIEW_W,
+  BABY_RADIUS, STAMINA_MAX, PLAYER_RADIUS, T, VIEW_H, VIEW_W,
   LOOT_TABLE_WEIGHTS, COLS, ROWS,
 } from './config';
 import {
@@ -72,8 +72,8 @@ export function initGame(): Game {
     cheese: 2,
     loot: 0,
     radius: PLAYER_RADIUS,
-    peekStamina: PEEKABOO_MAX,
-    peekExhausted: false,
+    stamina: STAMINA_MAX,
+    staminaExhausted: false,
     tools: [] as any[],
     keys: [] as any[],
     gear: [] as any[],

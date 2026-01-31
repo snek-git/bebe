@@ -1,5 +1,5 @@
 import {
-  VIEW_W, VIEW_H, T, COLS, ROWS, TOTAL_LOOT, PEEKABOO_MAX,
+  VIEW_W, VIEW_H, T, COLS, ROWS, TOTAL_LOOT, STAMINA_MAX,
   TOOL_TYPES,
 } from '../config';
 import { mouseScreen } from '../input';
@@ -71,57 +71,73 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     }
   }
 
-  // Peekaboo stamina bar
-  const pbw = 96, pbh = 10, pbx = VIEW_W - pbw - 12, pby = 32;
-  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
-  ctx.fillStyle = SK.cardFill; ctx.fillRect(pbx, pby, pbw, pbh);
-  const stPct = p.peekStamina / PEEKABOO_MAX;
-  ctx.fillStyle = p.peekExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
-  ctx.fillRect(pbx, pby, pbw * stPct, pbh);
-  sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.5, grain: false });
+  // === BOTTOM-LEFT STATUS PANEL (stamina bar + state label) ===
+  const pbw = 96, pbh = 10;
+  const pbx = 12, pby = VIEW_H - 34;
+
+  // Determine current state label & color
+  let stateLabel: string;
+  let stateColor: string;
   const showPulse = p.hiding && game.peekabooPulseTimer > 0;
-  if (!showPulse) {
-    crayonText(ctx, 'peekaboo', pbx + pbw / 2, pby - 3, {
-      fill: p.peekExhausted ? '#ef4444' : SK.dim,
-      font: 'bold 11px monospace', jitterAmt: 0.3, passes: 2,
-    });
-    ctx.textAlign = 'right';
+
+  if (p.staminaExhausted) {
+    stateLabel = 'exhausted';
+    stateColor = '#ef4444';
+  } else if (p.hiding) {
+    stateLabel = 'peekaboo';
+    stateColor = '#4ade80';
+  } else if (p.sprinting && (p.vx || p.vy)) {
+    stateLabel = 'sprint';
+    stateColor = '#60a5fa';
+  } else if (p.searching) {
+    stateLabel = 'searching';
+    stateColor = '#a78bfa';
+  } else if (p.looting) {
+    stateLabel = 'looting';
+    stateColor = '#fbbf24';
+  } else {
+    stateLabel = 'idle';
+    stateColor = '#4ade80';
   }
 
-  // Status text
-  ctx.textAlign = 'right'; ctx.font = '12px monospace';
+  // State label above bar
+  const stPct = p.stamina / STAMINA_MAX;
   if (showPulse) {
     const t = Math.max(0, Math.min(1, game.peekabooPulseTimer / 2.0));
     const wave = (Math.sin(time * 10) + 1) / 2;
     const size = 11 + Math.round(wave * 2);
     ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
-    const stPct2 = p.peekStamina / PEEKABOO_MAX;
     let r = 74, g = 222, b = 128;
-    if (p.peekExhausted) {
+    if (p.staminaExhausted) {
       r = 239; g = 68; b = 68;
-    } else if (stPct2 < 0.3) {
-      const k = Math.min(1, (0.3 - stPct2) / 0.3);
+    } else if (stPct < 0.3) {
+      const k = Math.min(1, (0.3 - stPct) / 0.3);
       r = Math.round(74 + (239 - 74) * k);
       g = Math.round(222 + (68 - 222) * k);
       b = Math.round(128 + (68 - 128) * k);
     }
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
     ctx.shadowBlur = 4 + wave * 4;
-    crayonText(ctx, 'peekaboo', pbx + pbw / 2, pby - 3, {
+    crayonText(ctx, stateLabel, pbx + pbw / 2, pby - 3, {
       fill: `rgb(${r}, ${g}, ${b})`,
       font: `bold ${size}px monospace`,
       jitterAmt: 0.3, passes: 2,
     });
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
-    ctx.textAlign = 'right';
-  } else if (p.looting) {
-    ctx.fillStyle = SK.warning; ctx.font = 'bold 12px monospace'; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
-  } else if (p.searching) {
-    ctx.fillStyle = SK.accent; ctx.font = 'bold 12px monospace'; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
-  } else if (p.sprinting) {
-    ctx.fillStyle = SK.primary; ctx.font = 'bold 12px monospace'; ctx.fillText('SPRINT', VIEW_W - 12, 22);
+  } else {
+    crayonText(ctx, stateLabel, pbx + pbw / 2, pby - 3, {
+      fill: stateColor,
+      font: 'bold 11px monospace', jitterAmt: 0.3, passes: 2,
+    });
   }
+
+  // Stamina bar
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
+  ctx.fillStyle = SK.cardFill; ctx.fillRect(pbx, pby, pbw, pbh);
+  ctx.fillStyle = p.staminaExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
+  ctx.fillRect(pbx, pby, pbw * stPct, pbh);
+  sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.5, grain: false });
 
   // Controls help
   ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '10px monospace';

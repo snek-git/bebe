@@ -99,8 +99,8 @@ export interface Player {
   cheese: number;
   loot: number;
   radius: number;
-  peekStamina: number;
-  peekExhausted: boolean;
+  stamina: number;
+  staminaExhausted: boolean;
   tools: ToolType[];
   keys: KeyType[];
   gear: GearType[];
