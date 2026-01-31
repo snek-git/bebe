@@ -1,5 +1,5 @@
 import { ROOM_DEFS, CORRIDORS, COLS, ROWS, T } from './config';
-import type { Point, RoomDef } from './types';
+import type { Point, RoomDef, Door } from './types';
 
 export function createGrid(): number[][] {
   const g: number[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
@@ -21,9 +21,9 @@ export function createGrid(): number[][] {
           if (yy >= 0 && xx >= 0) g[yy][xx] = 2;
   }
 
-  const er = roomDef('entrance')!;
-  const ex = er.x + Math.floor(er.w / 2);
-  for (let y = er.y + er.h; y < ROWS; y++) g[y][ex] = 0;
+  const fr = roomDef('foyer')!;
+  const ex = fr.x + Math.floor(fr.w / 2);
+  for (let y = fr.y + fr.h; y < ROWS; y++) g[y][ex] = 0;
 
   return g;
 }
@@ -57,4 +57,15 @@ export function isSolid(grid: number[][], tx: number, ty: number): boolean {
 
 export function isWalkable(grid: number[][], tx: number, ty: number): boolean {
   return tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS && grid[ty][tx] === 0;
+}
+
+export function isDoorBlocking(doors: Door[], tx: number, ty: number): boolean {
+  for (const d of doors) {
+    if (d.tx === tx && d.ty === ty && d.state !== 'open') return true;
+  }
+  return false;
+}
+
+export function getDoorAt(doors: Door[], tx: number, ty: number): Door | undefined {
+  return doors.find(d => d.tx === tx && d.ty === ty);
 }

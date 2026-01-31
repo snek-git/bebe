@@ -1,11 +1,17 @@
-import { VIEW_W, VIEW_H, CHEESE_COOLDOWN, CHEESE_SPEED, TV_DURATION, DISTRACTION_DURATION } from './config';
+import {
+  VIEW_W, VIEW_H, CHEESE_COOLDOWN, TV_DURATION,
+  DISTRACTION_DURATION,
+} from './config';
 import { initGame } from './state';
 import { initInput, isDown, onKeyDown, onKeyUp, addClickHandler, addScreenClickHandler, mouseWorld } from './input';
 import { updatePlayer } from './update/player';
 import { updateBabies } from './update/babies';
 import { updateProjectiles } from './update/projectiles';
 import { updateDetection } from './update/detection';
-import { updateDistractions, updateTVs, checkPickups, checkWin, updateCamera } from './update/world';
+import {
+  updateDistractions, updateTVs, updateDoors, updateNoiseEvents,
+  checkPickups, checkWin, updateCamera,
+} from './update/world';
 import { render } from './render/index';
 import { retryButtonRect, RETRY_APPEAR_TIME, RETRY_PRESS_DURATION, RETRY_FADE_DURATION } from './render/screens';
 import { dist } from './utils';
@@ -41,7 +47,7 @@ onKeyDown((e) => {
   }
 
   if (game.state === 'playing' && e.key.toLowerCase() === 'q' &&
-      !game.player.hiding && !game.player.looting && game.player.tools.length > 0 && game.qDownTime === 0) {
+      !game.player.hiding && !game.player.looting && !game.player.searching && game.player.tools.length > 0 && game.qDownTime === 0) {
     game.qDownTime = performance.now();
   }
 
@@ -99,15 +105,17 @@ onKeyUp((e) => {
 });
 
 addClickHandler(canvas, (worldX, worldY) => {
-  if (game.state !== 'playing' || game.player.hiding || game.player.looting) return;
-  if (game.player.cheese <= 0 || game.cheeseCooldown > 0) return;
-  game.player.cheese--;
-  game.cheeseCooldown = CHEESE_COOLDOWN;
-  game.cheeses.push({
-    x: game.player.x, y: game.player.y,
-    targetX: worldX, targetY: worldY,
-    landed: false, timer: 0, dead: false, stuckBaby: null,
-  });
+  if (game.state !== 'playing' || game.player.hiding || game.player.looting || game.player.searching) return;
+  const p = game.player;
+  if (p.cheese > 0 && game.cheeseCooldown <= 0) {
+    p.cheese--;
+    game.cheeseCooldown = CHEESE_COOLDOWN;
+    game.cheeses.push({
+      x: p.x, y: p.y,
+      targetX: worldX, targetY: worldY,
+      landed: false, timer: 0, dead: false, stuckBaby: null,
+    });
+  }
 }, game.camera);
 
 addScreenClickHandler(canvas, (screenX, screenY) => {
@@ -153,6 +161,8 @@ function update(dt: number): void {
   updateProjectiles(game, dt);
   updateDistractions(game, dt);
   updateTVs(game, dt);
+  updateDoors(game, dt);
+  updateNoiseEvents(game, dt);
   updateDetection(game, dt);
   checkPickups(game);
   checkWin(game);

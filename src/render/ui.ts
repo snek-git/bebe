@@ -25,26 +25,37 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(game.detection > 50 ? 'DETECTED!' : 'DETECTION', VIEW_W / 2, by + bh + 12);
 
-  // Cheese + loot counters
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#fde047'; ctx.font = 'bold 12px monospace';
-  ctx.fillText('CHEESE: ' + p.cheese, 12, 22);
-  if (game.cheeseCooldown > 0) {
-    ctx.fillStyle = '#9ca3af'; ctx.font = '9px monospace';
-    ctx.fillText('(' + game.cheeseCooldown.toFixed(1) + 's)', 115, 22);
-  }
-  ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px monospace';
-  ctx.fillText('LOOT: ' + p.loot + '/' + TOTAL_LOOT, 12, 38);
+  // === HOTBAR (bottom center) ===
+  renderHotbar(ctx, game);
 
-  // Tool slot
-  if (p.tools.length > 0) {
-    const tt = TOOL_TYPES[p.tools[0]];
-    ctx.fillStyle = '#c084fc'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-    const hint = p.tools.length > 1 ? '  [hold Q]' : '';
-    ctx.fillText('[Q] ' + tt.name + hint, 12, 54);
-    if (p.tools.length > 1) {
-      ctx.fillStyle = 'rgba(192,132,252,0.5)'; ctx.font = '9px monospace';
-      ctx.fillText(p.tools.length + ' tools', 12, 66);
+  // Key cards (top-left)
+  if (p.keys.length > 0) {
+    let keyX = 12;
+    ctx.font = 'bold 9px monospace'; ctx.textBaseline = 'alphabetic';
+    const colors: Record<string, string> = { keyA: '#ef4444', keyB: '#3b82f6', keyC: '#22c55e' };
+    for (const k of p.keys) {
+      ctx.fillStyle = colors[k] || '#facc15';
+      ctx.fillRect(keyX, 22, 20, 10);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(k.replace('key', ''), keyX + 10, 31);
+      keyX += 24;
+    }
+  }
+
+  // Gear icons (top-left, below keys)
+  if (p.gear.length > 0) {
+    ctx.textAlign = 'left'; ctx.font = '9px monospace';
+    let gx = 12;
+    for (const g of p.gear) {
+      if (g === 'sneakers') {
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText('SNEAK', gx, 46);
+      } else {
+        ctx.fillStyle = '#a855f7';
+        ctx.fillText('SHADE', gx, 46);
+      }
+      gx += 50;
     }
   }
 
@@ -71,12 +82,12 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     const wave = (Math.sin(time * 10) + 1) / 2;
     const size = 9 + Math.round(wave * 2);
     ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
-    const stPct = p.peekStamina / PEEKABOO_MAX;
+    const stPct2 = p.peekStamina / PEEKABOO_MAX;
     let r = 74, g = 222, b = 128;
     if (p.peekExhausted) {
       r = 239; g = 68; b = 68;
-    } else if (stPct < 0.3) {
-      const k = Math.min(1, (0.3 - stPct) / 0.3);
+    } else if (stPct2 < 0.3) {
+      const k = Math.min(1, (0.3 - stPct2) / 0.3);
       r = Math.round(74 + (239 - 74) * k);
       g = Math.round(222 + (68 - 222) * k);
       b = Math.round(128 + (68 - 128) * k);
@@ -92,22 +103,128 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.textAlign = 'right';
   } else if (p.looting) {
     ctx.fillStyle = '#fbbf24'; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
+  } else if (p.searching) {
+    ctx.fillStyle = '#a78bfa'; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
+  } else if (p.sprinting) {
+    ctx.fillStyle = '#86efac'; ctx.fillText('SPRINT', VIEW_W - 12, 22);
   }
 
   // Controls help
   ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '9px monospace';
   ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
 
-  // All loot collected message
+  // Prize collected message (above hotbar)
   if (p.loot >= TOTAL_LOOT) {
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#4ade80'; ctx.font = 'bold 11px monospace';
     ctx.globalAlpha = Math.sin(time * 4) * 0.3 + 0.7;
-    ctx.fillText('ALL LOOT COLLECTED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 24);
+    ctx.fillText('GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 62);
     ctx.globalAlpha = 1;
+  }
+
+  // Crosshair
+  if (game.state === 'playing' && !p.hiding && !p.looting && !p.searching) {
+    renderCrosshair(ctx, game);
   }
 
   // Minimap
   renderMinimap(ctx, game);
+}
+
+const SLOT_SIZE = 34;
+const SLOT_GAP = 3;
+
+function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
+  const p = game.player;
+  const hasTools = p.tools.length > 0;
+  const slotCount = 1 + (hasTools ? 1 : 0);
+  const barW = slotCount * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP + (hasTools ? 8 : 0);
+  const barX = VIEW_W / 2 - barW / 2;
+  const barY = VIEW_H - SLOT_SIZE - 14;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(barX - 4, barY - 4, barW + 8, SLOT_SIZE + 8);
+
+  // Cheese slot
+  const csx = barX;
+  ctx.fillStyle = 'rgba(30,30,46,0.8)';
+  ctx.fillRect(csx, barY, SLOT_SIZE, SLOT_SIZE);
+  ctx.strokeStyle = p.cheese > 0 ? '#fbbf24' : '#374151';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(csx + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (p.cheese > 0) {
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath();
+    ctx.arc(csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 2, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace';
+    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
+  } else {
+    ctx.fillStyle = '#4b5563'; ctx.font = '8px monospace';
+    ctx.fillText('--', csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
+  }
+  if (game.cheeseCooldown > 0) {
+    const cdPct = game.cheeseCooldown / 3.0;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(csx, barY, SLOT_SIZE, SLOT_SIZE * cdPct);
+  }
+
+  // Tool slot
+  if (hasTools) {
+    const toolX = barX + SLOT_SIZE + SLOT_GAP + 5;
+    ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(toolX - 5, barY + 2);
+    ctx.lineTo(toolX - 5, barY + SLOT_SIZE - 2);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(30,30,46,0.8)';
+    ctx.fillRect(toolX, barY, SLOT_SIZE, SLOT_SIZE);
+    ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 1;
+    ctx.strokeRect(toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+
+    const tt = TOOL_TYPES[p.tools[0]];
+    ctx.fillStyle = '#c084fc'; ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(tt.name.slice(0, 5).toUpperCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
+    ctx.fillStyle = '#c084fc'; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Q', toolX + 5, barY - 2);
+    if (p.tools.length > 1) {
+      ctx.fillStyle = '#9ca3af'; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('+' + (p.tools.length - 1), toolX + SLOT_SIZE - 6, barY + SLOT_SIZE - 3);
+    }
+  }
+}
+
+function renderCrosshair(ctx: CanvasRenderingContext2D, game: Game): void {
+  const m = mouseScreen();
+  const cx = m.x, cy = m.y;
+  const size = 10;
+  const gap = 3;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 1.5;
+
+  // Horizontal lines
+  ctx.beginPath();
+  ctx.moveTo(cx - size, cy);
+  ctx.lineTo(cx - gap, cy);
+  ctx.moveTo(cx + gap, cy);
+  ctx.lineTo(cx + size, cy);
+  // Vertical lines
+  ctx.moveTo(cx, cy - size);
+  ctx.lineTo(cx, cy - gap);
+  ctx.moveTo(cx, cy + gap);
+  ctx.lineTo(cx, cy + size);
+  ctx.stroke();
+
+  // Center dot
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
@@ -121,6 +238,18 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.fillStyle = v === 1 ? '#3a3a5c' : (v === 2 ? '#2a1f14' : '#1e1e2e');
       ctx.fillRect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
     }
+  }
+
+  // Doors on minimap
+  for (const d of game.doors) {
+    if (d.state === 'open') {
+      ctx.fillStyle = '#4ade80';
+    } else if (d.state === 'closed') {
+      ctx.fillStyle = '#8B4513';
+    } else {
+      ctx.fillStyle = '#ef4444';
+    }
+    ctx.fillRect(mmX + d.tx * mmS, mmY + d.ty * mmS, mmS, mmS);
   }
 
   ctx.fillStyle = '#4ade80';

@@ -1,5 +1,5 @@
 import {
-  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, PEEKABOO_MAX, CHEESE_SPEED,
+  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, PEEKABOO_MAX, CHEESE_SPEED,
   TV_DURATION, TV_RANGE, DISTRACTION_DURATION, DISTRACTION_RANGE,
   VIEW_W, VIEW_H, LOOT_TYPES, TOOL_TYPES,
 } from '../config';
@@ -125,7 +125,7 @@ export function renderLootItems(ctx: CanvasRenderingContext2D, game: Game): void
     drawLootShape(ctx, px, py, l.type, 10);
     if (game.state === 'playing' && dist(game.player, l) < T * 1.2) {
       ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(lt.name, px, py - 18);
+      ctx.fillText('GOLDEN BEBE', px, py - 18);
       if (!game.player.looting && dist(game.player, l) < T * 0.9) {
         ctx.fillStyle = 'rgba(255,255,200,0.7)';
         ctx.fillText('[E] Grab', px, py - 28);
@@ -134,17 +134,107 @@ export function renderLootItems(ctx: CanvasRenderingContext2D, game: Game): void
   }
 }
 
+export function renderContainers(ctx: CanvasRenderingContext2D, game: Game): void {
+  const time = game.time;
+  for (const c of game.containers) {
+    if (!onScreen(c.x, c.y, 40, game)) continue;
+    const px = sx(c.x, game), py = sy(c.y, game);
+
+    if (c.searched) {
+      // Already searched: dim, open appearance
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fillRect(px - 10, py - 8, 20, 16);
+      ctx.strokeStyle = '#3a3a4a';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px - 10, py - 8, 20, 16);
+    } else {
+      // Unsearched: glowing, inviting
+      const glow = Math.sin(time * 2 + c.x) * 0.1 + 0.3;
+      ctx.fillStyle = '#3d2e1c';
+      ctx.fillRect(px - 10, py - 8, 20, 16);
+      ctx.strokeStyle = `rgba(251,191,36,${glow})`;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px - 10, py - 8, 20, 16);
+      // Latch
+      ctx.fillStyle = '#DAA520';
+      ctx.fillRect(px - 2, py - 8, 4, 3);
+
+      if (dist(game.player, c) < T * 1.2) {
+        ctx.fillStyle = 'rgba(251,191,36,0.8)';
+        ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText('[E] Search', px, py - 14);
+      }
+    }
+  }
+}
+
+export function renderKeyPickups(ctx: CanvasRenderingContext2D, game: Game): void {
+  const time = game.time;
+  for (const k of game.keyPickups) {
+    if (k.collected || !onScreen(k.x, k.y, 40, game)) continue;
+    const bob = Math.sin(time * 3 + k.x) * 2;
+    const px = sx(k.x, game), py = sy(k.y + bob, game);
+
+    // Glow
+    ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(250,204,21,0.2)'; ctx.fill();
+
+    // Key card shape
+    const colors: Record<string, string> = { keyA: '#ef4444', keyB: '#3b82f6', keyC: '#22c55e' };
+    ctx.fillStyle = colors[k.type] || '#facc15';
+    ctx.fillRect(px - 8, py - 5, 16, 10);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px - 8, py - 5, 16, 10);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(k.type.replace('key', ''), px, py);
+
+    if (dist(game.player, k) < T * 1.2) {
+      ctx.fillStyle = 'rgba(250,204,21,0.9)';
+      ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('KEY ' + k.type.replace('key', ''), px, py - 16);
+    }
+  }
+}
+
+export function renderGearPickups(ctx: CanvasRenderingContext2D, game: Game): void {
+  const time = game.time;
+  for (const g of game.gearPickups) {
+    if (g.collected || !onScreen(g.x, g.y, 40, game)) continue;
+    const bob = Math.sin(time * 2 + g.x + g.y) * 1.5;
+    const px = sx(g.x, game), py = sy(g.y + bob, game);
+
+    ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(74,222,128,0.15)'; ctx.fill();
+
+    if (g.type === 'sneakers') {
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(px - 5, py - 3, 10, 6);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(px - 4, py, 3, 2);
+    } else {
+      ctx.fillStyle = '#1e1e2e';
+      ctx.beginPath(); ctx.ellipse(px - 4, py, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(px + 4, py, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px - 4, py - 3); ctx.lineTo(px + 4, py - 3); ctx.stroke();
+    }
+  }
+}
+
 export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
   for (const c of game.cheeses) {
     if ((c.stuckBaby && c.landed) || !onScreen(c.x, c.y, 20, game)) continue;
+    const cpx = sx(c.x, game), cpy = sy(c.y, game);
     if (c.isPacifier) {
-      drawToolShape(ctx, sx(c.x, game), sy(c.y, game), 'pacifier', 7, game.time);
+      drawToolShape(ctx, cpx, cpy, 'pacifier', 7, game.time);
     } else {
       ctx.fillStyle = '#fde047';
       ctx.beginPath();
-      ctx.moveTo(sx(c.x, game), sy(c.y, game) - 5);
-      ctx.lineTo(sx(c.x, game) + 5, sy(c.y, game) + 4);
-      ctx.lineTo(sx(c.x, game) - 5, sy(c.y, game) + 4);
+      ctx.moveTo(cpx, cpy - 5);
+      ctx.lineTo(cpx + 5, cpy + 4);
+      ctx.lineTo(cpx - 5, cpy + 4);
       ctx.closePath(); ctx.fill();
     }
   }
@@ -283,7 +373,8 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.beginPath(); ctx.arc(px, py, ringSize, 0, Math.PI * 2); ctx.stroke();
     ctx.globalAlpha = 1;
   } else {
-    ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = p.sprinting ? '#86efac' : '#4ade80';
+    ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5; ctx.stroke();
     const eo = 4;
     const e1x = px + Math.cos(p.facing - 0.4) * eo, e1y = py + Math.sin(p.facing - 0.4) * eo;
@@ -300,5 +391,12 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
     const bw = 30, bh = 4;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(px - bw / 2, py - PLAYER_RADIUS - 14, bw, bh);
     ctx.fillStyle = '#fbbf24'; ctx.fillRect(px - bw / 2, py - PLAYER_RADIUS - 14, bw * pct, bh);
+  }
+
+  if (p.searching) {
+    const pct = 1 - p.searchTimer / SEARCH_TIME;
+    const bw = 30, bh = 4;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(px - bw / 2, py - PLAYER_RADIUS - 14, bw, bh);
+    ctx.fillStyle = '#a78bfa'; ctx.fillRect(px - bw / 2, py - PLAYER_RADIUS - 14, bw * pct, bh);
   }
 }

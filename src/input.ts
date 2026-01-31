@@ -34,6 +34,7 @@ export function initInput(canvas: HTMLCanvasElement): void {
     state.mouse.x = (e.clientX - r.left) * (VIEW_W / r.width);
     state.mouse.y = (e.clientY - r.top) * (VIEW_H / r.height);
   });
+
 }
 
 export function isDown(key: string): boolean {

@@ -44,29 +44,30 @@ export function renderTitle(ctx: CanvasRenderingContext2D): void {
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 48px monospace';
-  ctx.fillText('BEBE HEIST', VIEW_W / 2, 120);
-  ctx.fillStyle = '#fb923c'; ctx.font = '16px monospace';
-  ctx.fillText('A Peekaboo Stealth Game', VIEW_W / 2, 155);
+  ctx.fillText('BEBE HEIST', VIEW_W / 2, 100);
+  ctx.fillStyle = '#fb923c'; ctx.font = '14px monospace';
+  ctx.fillText('Steal the Golden Bebe. Don\'t get caught.', VIEW_W / 2, 130);
   ctx.fillStyle = '#fb923c'; ctx.font = '36px monospace';
-  ctx.fillText('(o_o)', VIEW_W / 2, 220);
+  ctx.fillText('(o_o)', VIEW_W / 2, 190);
 
-  ctx.fillStyle = '#e5e7eb'; ctx.font = '11px monospace';
+  ctx.fillStyle = '#e5e7eb'; ctx.font = '10px monospace';
   const lines = [
-    'Rob the bank. Don\'t let the babies see your face.',
-    'They have no object permanence.', '',
-    'WASD - Move       HOLD SPACE - Peekaboo (limited breath!)',
-    'CLICK - Throw cheese    E - Grab loot    Q - Use tool', '',
-    'Hide your face: they forget you exist. But watch your breath!',
+    'Infiltrate the baby bank. Find 3 keycards. Reach the vault.',
+    'Babies have no object permanence -- hide your face and they forget you.', '',
+    'WASD - Move    SHIFT - Sprint (noisy!)    HOLD SPACE - Peekaboo',
+    'CLICK - Throw cheese    E - Interact (loot/search/doors)',
+    'Q - Use tool    HOLD Q - Tool wheel', '',
     'PINK stawlers charge at you while you hide. Cheese or run!',
     'RED toddler hunts you down. Only items can stop it!', '',
-    'TOOLS: iPad (drop as distraction) | Remote (turn on TV for cocomelon)',
-    '       Pacifier (throw at baby, calms them longer)',
+    'DOORS: E to open quietly. Sprint into them to SLAM (stuns nearby babies).',
+    'CONTAINERS: E to search. Find cheese, gear, or... poop.',
+    'KEYS: A (restricted zone) | B+C (vault). All 3 open the final door.',
   ];
-  lines.forEach((l, i) => ctx.fillText(l, VIEW_W / 2, 270 + i * 18));
+  lines.forEach((l, i) => ctx.fillText(l, VIEW_W / 2, 230 + i * 16));
 
   ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7;
   ctx.fillStyle = '#4ade80'; ctx.font = 'bold 16px monospace';
-  ctx.fillText('PRESS SPACE TO START', VIEW_W / 2, VIEW_H - 30);
+  ctx.fillText('PRESS SPACE TO START', VIEW_W / 2, VIEW_H - 20);
   ctx.globalAlpha = 1;
 }
 
@@ -93,7 +94,7 @@ export function renderGameOver(ctx: CanvasRenderingContext2D, game: Game): void 
   ctx.fillStyle = '#fca5a5'; ctx.font = '14px monospace';
   ctx.fillText('The baby saw your face and started crying.', VIEW_W / 2, cardY + 98);
   ctx.fillStyle = '#e5e7eb'; ctx.font = '12px monospace';
-  ctx.fillText('Loot grabbed: ' + game.player.loot + '/' + TOTAL_LOOT, VIEW_W / 2, cardY + 124);
+  ctx.fillText('Keys: ' + game.player.keys.length + '/3 | Golden Bebe: ' + (game.player.loot > 0 ? 'YES' : 'NO'), VIEW_W / 2, cardY + 124);
 
   if (game.gameOverTimer > RETRY_APPEAR_TIME) {
     const btn = retryButtonRect();
@@ -132,9 +133,9 @@ export function renderWinScreen(ctx: CanvasRenderingContext2D, game: Game): void
   ctx.fillStyle = '#4ade80'; ctx.font = 'bold 48px monospace';
   ctx.fillText('ESCAPED!', VIEW_W / 2, VIEW_H / 2 - 40);
   ctx.fillStyle = '#86efac'; ctx.font = '14px monospace';
-  ctx.fillText('You robbed the baby bank and got away clean.', VIEW_W / 2, VIEW_H / 2 + 10);
+  ctx.fillText('You stole the Golden Bebe and got away clean.', VIEW_W / 2, VIEW_H / 2 + 10);
   ctx.fillStyle = '#fbbf24'; ctx.font = '12px monospace';
-  ctx.fillText('Cheese remaining: ' + game.player.cheese, VIEW_W / 2, VIEW_H / 2 + 50);
+  ctx.fillText('Cheese remaining: ' + game.player.cheese + ' | Tools: ' + game.player.tools.length, VIEW_W / 2, VIEW_H / 2 + 50);
   ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7;
   ctx.fillStyle = '#e5e7eb'; ctx.font = 'bold 14px monospace';
   ctx.fillText('PRESS R TO PLAY AGAIN', VIEW_W / 2, VIEW_H / 2 + 90);

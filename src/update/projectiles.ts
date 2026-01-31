@@ -1,4 +1,7 @@
-import { CHEESE_SPEED, CHEESE_STUN_TIME, PACIFIER_CALM_TIME, BABY_RADIUS, T } from '../config';
+import {
+  CHEESE_SPEED, CHEESE_STUN_TIME, PACIFIER_CALM_TIME,
+  BABY_RADIUS, T,
+} from '../config';
 import { isWall } from '../map';
 import { dist } from '../utils';
 import type { Game } from '../types';
@@ -8,6 +11,7 @@ export function updateProjectiles(game: Game, dt: number): void {
     if (!c.landed) {
       const px = c.x, py = c.y;
       const spd = c.isPacifier ? CHEESE_SPEED * 0.8 : CHEESE_SPEED;
+
       const dx = c.targetX - c.x, dy = c.targetY - c.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       const mv = spd * dt;

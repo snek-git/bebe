@@ -17,6 +17,17 @@ export function updateTVs(game: Game, dt: number): void {
   }
 }
 
+export function updateDoors(game: Game, dt: number): void {
+  for (const d of game.doors) {
+    if (d.slamTimer > 0) d.slamTimer -= dt;
+  }
+}
+
+export function updateNoiseEvents(game: Game, dt: number): void {
+  for (const n of game.noiseEvents) n.timer -= dt;
+  game.noiseEvents = game.noiseEvents.filter(n => n.timer > 0);
+}
+
 export function checkPickups(game: Game): void {
   const p = game.player;
   for (const cp of game.cheesePickups) {
@@ -36,7 +47,7 @@ export function checkPickups(game: Game): void {
 export function checkWin(game: Game): void {
   const p = game.player;
   if (p.loot >= TOTAL_LOOT) {
-    const er = roomDef('entrance')!;
+    const er = roomDef('foyer')!;
     const ex = er.x + Math.floor(er.w / 2);
     if (Math.floor(p.x / T) === ex && p.y > (ROWS - 2) * T) {
       game.state = 'win';

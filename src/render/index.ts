@@ -1,8 +1,9 @@
 import { VIEW_W, VIEW_H } from '../config';
-import { renderMap, renderRoomLabels, renderExit } from './map';
+import { renderMap, renderRoomLabels, renderExit, renderDoors } from './map';
 import {
   renderTVs, renderCheesePickups, renderToolPickups, renderDistractions,
   renderLootItems, renderCheeses, renderBabies, renderPlayer,
+  renderContainers, renderKeyPickups, renderGearPickups,
 } from './entities';
 import { renderVisionCones } from './visioncones';
 import { renderUI, renderToolWheel, renderDetectionOverlay } from './ui';
@@ -21,7 +22,11 @@ export function render(ctx: CanvasRenderingContext2D, game: Game): void {
   renderMap(ctx, game);
   renderExit(ctx, game);
   renderRoomLabels(ctx, game);
+  renderDoors(ctx, game);
   renderTVs(ctx, game);
+  renderContainers(ctx, game);
+  renderKeyPickups(ctx, game);
+  renderGearPickups(ctx, game);
   renderCheesePickups(ctx, game);
   renderToolPickups(ctx, game);
   renderDistractions(ctx, game);

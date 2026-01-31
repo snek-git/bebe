@@ -3,11 +3,12 @@ import {
   STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
   TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL, TODDLER_ROOM_DWELL_MAX,
   VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
+  DOOR_PUSH_TIME,
 } from '../config';
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
-import { roomCenter } from '../map';
+import { roomCenter, isDoorBlocking, getDoorAt } from '../map';
 import { findPath } from '../pathfinding';
-import type { Game, Baby, Point } from '../types';
+import type { Game, Baby, Point, NoiseEvent } from '../types';
 
 const BABY_TURN_RATE = 6.0; // radians per second
 
@@ -49,6 +50,21 @@ function nearestAttraction(game: Game, b: Baby): Point | null {
   return best;
 }
 
+function nearestNoise(game: Game, b: Baby): NoiseEvent | null {
+  let best: NoiseEvent | null = null;
+  let bestDist = Infinity;
+
+  for (const n of game.noiseEvents) {
+    const dd = dist(b, n);
+    if (dd < n.radius && dd < bestDist) {
+      best = n;
+      bestDist = dd;
+    }
+  }
+
+  return best;
+}
+
 export function canBabySee(game: Game, b: Baby): boolean {
   if (b.stunTimer > 0) return false;
   const p = game.player;
@@ -56,7 +72,9 @@ export function canBabySee(game: Game, b: Baby): boolean {
   const d = Math.sqrt(dx * dx + dy * dy);
   if (d > VISION_RANGE) return false;
   if (Math.abs(angleDiff(Math.atan2(dy, dx), b.facing)) > VISION_ANGLE / 2) return false;
-  return hasLOS(game.grid, b.x, b.y, p.x, p.y);
+  // Check door blocking along LOS
+  if (!hasLOSWithDoors(game, b.x, b.y, p.x, p.y)) return false;
+  return true;
 }
 
 export function canBabySeePeeker(game: Game, b: Baby): boolean {
@@ -66,7 +84,23 @@ export function canBabySeePeeker(game: Game, b: Baby): boolean {
   const d = Math.sqrt(dx * dx + dy * dy);
   if (d > STAWLER_APPROACH_RANGE) return false;
   if (Math.abs(angleDiff(Math.atan2(dy, dx), b.facing)) > VISION_ANGLE / 2) return false;
-  return hasLOS(game.grid, b.x, b.y, p.x, p.y);
+  if (!hasLOSWithDoors(game, b.x, b.y, p.x, p.y)) return false;
+  return true;
+}
+
+function hasLOSWithDoors(game: Game, x1: number, y1: number, x2: number, y2: number): boolean {
+  if (!hasLOS(game.grid, x1, y1, x2, y2)) return false;
+  // Check if any closed/locked door blocks LOS
+  const dx = x2 - x1, dy = y2 - y1;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const steps = Math.ceil(d / 8);
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const px = x1 + dx * t;
+    const py = y1 + dy * t;
+    if (isDoorBlocking(game.doors, Math.floor(px / T), Math.floor(py / T))) return false;
+  }
+  return true;
 }
 
 function moveStawlerToward(
@@ -109,6 +143,13 @@ export function updateBabies(game: Game, dt: number): void {
       if (b.type === 'toddler') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       b.distracted = false;
       continue;
+    }
+
+    // Check for noise reactions first
+    const noise = nearestNoise(game, b);
+    if (noise && !b.distracted) {
+      const dx = noise.x - b.x, dy = noise.y - b.y;
+      b.facing = Math.atan2(dy, dx);
     }
 
     const attr = nearestAttraction(game, b);
@@ -229,10 +270,10 @@ export function updateBabies(game: Game, dt: number): void {
         b.roomDwell = (b.roomDwell ?? 0) + dt;
       }
 
-      // Refill room queue — fresh rooms first, recently visited last
+      // Refill room queue -- fresh rooms first, recently visited last
       if (!b.roamQueue || b.roamQueue.length === 0) {
         const recent = b.recentRooms || [];
-        const all = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor').map(r => r.id);
+        const all = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'foyer').map(r => r.id);
         const fresh = all.filter(r => !recent.includes(r));
         const stale = all.filter(r => recent.includes(r));
         const shuffle = (a: string[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -278,6 +319,7 @@ export function updateBabies(game: Game, dt: number): void {
         if (td < 8) {
           b.pathIndex = (b.pathIndex ?? 0) + 1;
         } else {
+          // Searching movement: deliberate zigzag
           const burst = 0.85 + 0.3 * Math.abs(Math.sin(game.time * 9 + b.y));
           const zigzag = Math.sin(game.time * 5) * 20;
           const nx = tdx / td, ny = tdy / td;
@@ -291,9 +333,31 @@ export function updateBabies(game: Game, dt: number): void {
       continue;
     }
 
+    // Baby door pushing: if walking toward a closed door, push it slowly
     const wp = b.waypoints[b.wpIndex];
     const dx = wp.x - b.x, dy = wp.y - b.y;
     const d = Math.sqrt(dx * dx + dy * dy);
+
+    if (d >= 4) {
+      const nextTx = Math.floor((b.x + (dx / d) * b.speed * dt * 3) / T);
+      const nextTy = Math.floor((b.y + (dy / d) * b.speed * dt * 3) / T);
+      const door = getDoorAt(game.doors, nextTx, nextTy);
+      if (door && door.state === 'closed') {
+        b.doorPushTimer = (b.doorPushTimer || 0) + dt;
+        b.doorPushTarget = door;
+        if (b.doorPushTimer >= DOOR_PUSH_TIME) {
+          door.state = 'open';
+          b.doorPushTimer = 0;
+          b.doorPushTarget = undefined;
+        }
+        b.facing = Math.atan2(dy, dx);
+        continue;
+      } else {
+        b.doorPushTimer = 0;
+        b.doorPushTarget = undefined;
+      }
+    }
+
     if (d < 4) {
       if (b.type === 'stawler') b.vel = 0;
       b.pauseTimer += dt;
@@ -324,6 +388,30 @@ export function updateBabies(game: Game, dt: number): void {
       }
       b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
       b.pauseTimer = 0;
+
+      // Baby door collision
+      const btx = Math.floor(b.x / T);
+      const bty = Math.floor(b.y / T);
+      for (let ddy = -1; ddy <= 1; ddy++) {
+        for (let ddx = -1; ddx <= 1; ddx++) {
+          if (isDoorBlocking(game.doors, btx + ddx, bty + ddy)) {
+            const door = getDoorAt(game.doors, btx + ddx, bty + ddy)!;
+            const l = door.tx * T;
+            const top = door.ty * T;
+            const cx = Math.max(l, Math.min(b.x, l + T));
+            const cy = Math.max(top, Math.min(b.y, top + T));
+            const ex = b.x - cx;
+            const ey = b.y - cy;
+            const dd = Math.sqrt(ex * ex + ey * ey);
+            if (dd < b.radius && dd > 0) {
+              b.x += (ex / dd) * (b.radius - dd);
+              b.y += (ey / dd) * (b.radius - dd);
+            }
+          }
+        }
+      }
+
+      resolveWalls(game.grid, b);
     }
   }
 }

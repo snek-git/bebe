@@ -1,4 +1,7 @@
-import { DETECTION_RATE, DETECTION_DECAY, BABY_RADIUS, PLAYER_RADIUS, PEEKABOO_MAX } from '../config';
+import {
+  DETECTION_RATE, DETECTION_DECAY, BABY_RADIUS, PLAYER_RADIUS,
+  SNEAKER_DETECTION_MULT,
+} from '../config';
 import { dist } from '../utils';
 import { canBabySee } from './babies';
 import type { Game } from '../types';
@@ -24,7 +27,8 @@ export function updateDetection(game: Game, dt: number): void {
   }
 
   if (seen) {
-    game.detection += DETECTION_RATE * dt;
+    const mult = p.gear.includes('sneakers') ? SNEAKER_DETECTION_MULT : 1.0;
+    game.detection += DETECTION_RATE * mult * dt;
     if (game.detection >= 100) {
       game.state = 'gameover';
       game.gameOverTimer = 0;

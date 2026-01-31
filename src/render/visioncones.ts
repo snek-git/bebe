@@ -1,5 +1,5 @@
 import { VISION_RANGE, VISION_ANGLE, STAWLER_APPROACH_RANGE, T, VIEW_W, VIEW_H } from '../config';
-import { isSolid } from '../map';
+import { isSolid, isDoorBlocking } from '../map';
 import { canBabySee, canBabySeePeeker } from '../update/babies';
 import type { Game } from '../types';
 
@@ -24,7 +24,9 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
       const cs = Math.cos(ang), sn = Math.sin(ang);
       let hitD = range;
       for (let d = 8; d <= range; d += 8) {
-        if (isSolid(game.grid, Math.floor((b.x + cs * d) / T), Math.floor((b.y + sn * d) / T))) {
+        const tx = Math.floor((b.x + cs * d) / T);
+        const ty = Math.floor((b.y + sn * d) / T);
+        if (isSolid(game.grid, tx, ty) || isDoorBlocking(game.doors, tx, ty)) {
           hitD = d;
           break;
         }

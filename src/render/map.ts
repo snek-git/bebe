@@ -39,6 +39,61 @@ export function renderMap(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 }
 
+export function renderDoors(ctx: CanvasRenderingContext2D, game: Game): void {
+  for (const d of game.doors) {
+    if (!onScreen(d.x, d.y, T, game)) continue;
+    const px = sx(d.x, game) - T / 2;
+    const py = sy(d.y, game) - T / 2;
+
+    if (d.state === 'open') {
+      // Open door: thin outline, walkable appearance
+      ctx.strokeStyle = '#6b7280';
+      ctx.lineWidth = 1;
+      if (d.orientation === 'v') {
+        ctx.strokeRect(px, py, 4, T);
+      } else {
+        ctx.strokeRect(px, py, T, 4);
+      }
+    } else if (d.state === 'closed') {
+      // Closed door: solid brown/wood
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(px, py, T, T);
+      ctx.strokeStyle = '#654321';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + 1, py + 1, T - 2, T - 2);
+      // Door handle
+      ctx.fillStyle = '#DAA520';
+      ctx.beginPath();
+      ctx.arc(px + T * 0.75, py + T / 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Slam flash
+      if (d.slamTimer > 0) {
+        ctx.fillStyle = `rgba(255,200,0,${d.slamTimer})`;
+        ctx.fillRect(px - 4, py - 4, T + 8, T + 8);
+      }
+    } else {
+      // Locked door: dark metal with lock icon
+      ctx.fillStyle = '#4a4a6a';
+      ctx.fillRect(px, py, T, T);
+      ctx.strokeStyle = '#6b6b8a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + 1, py + 1, T - 2, T - 2);
+      // Lock symbol
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('X', px + T / 2, py + T / 2);
+      // Required key label
+      if (d.requiredKey) {
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '7px monospace';
+        ctx.fillText(d.requiredKey.replace('key', ''), px + T / 2, py + T - 4);
+      }
+    }
+  }
+}
+
 export function renderRoomLabels(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(255,255,255,0.07)';
@@ -52,7 +107,7 @@ export function renderRoomLabels(ctx: CanvasRenderingContext2D, game: Game): voi
 }
 
 export function renderExit(ctx: CanvasRenderingContext2D, game: Game): void {
-  const er = roomDef('entrance')!;
+  const er = roomDef('foyer')!;
   const ex = (er.x + Math.floor(er.w / 2)) * T;
   const ey = (ROWS - 1) * T;
   if (!onScreen(ex + T / 2, ey + T / 2, T, game)) return;

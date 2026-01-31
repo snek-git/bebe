@@ -1,6 +1,9 @@
 export type GameState = 'title' | 'playing' | 'gameover' | 'win';
 export type ToolType = 'ipad' | 'remote' | 'pacifier';
 export type LootType = 'cash' | 'gold' | 'diamond' | 'key' | 'docs' | 'jewels' | 'coin';
+export type KeyType = 'keyA' | 'keyB' | 'keyC';
+export type GearType = 'sneakers' | 'sunglasses';
+export type DoorState = 'open' | 'closed' | 'locked';
 
 export interface Point {
   x: number;
@@ -35,6 +38,21 @@ export interface ToolTypeDef {
   desc: string;
 }
 
+export interface DoorDef {
+  tx: number;
+  ty: number;
+  orientation: 'h' | 'v';
+  initial: DoorState;
+  requiredKey?: KeyType;
+}
+
+export interface ContainerDef {
+  tx: number;
+  ty: number;
+  room: string;
+  fixed?: { type: 'cheese' | 'throwable' | 'gear' | 'key'; item?: string };
+}
+
 export interface Player {
   x: number;
   y: number;
@@ -51,6 +69,12 @@ export interface Player {
   peekStamina: number;
   peekExhausted: boolean;
   tools: ToolType[];
+  keys: KeyType[];
+  gear: GearType[];
+  sprinting: boolean;
+  searchTarget: Container | null;
+  searchTimer: number;
+  searching: boolean;
 }
 
 export type BabyType = 'crawler' | 'stawler' | 'toddler';
@@ -77,6 +101,8 @@ export interface Baby {
   roomDwell?: number;
   roamQueue?: string[];
   recentRooms?: string[];
+  doorPushTimer?: number;
+  doorPushTarget?: Door;
 }
 
 export interface Loot {
@@ -131,6 +157,53 @@ export interface Camera {
   y: number;
 }
 
+export interface Door {
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  state: DoorState;
+  orientation: 'h' | 'v';
+  requiredKey?: KeyType;
+  slamTimer: number;
+}
+
+export interface Container {
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  room: string;
+  searched: boolean;
+  contents: ContainerItem | null;
+}
+
+export interface ContainerItem {
+  type: 'cheese' | 'throwable' | 'gear' | 'key' | 'poop' | 'loot';
+  item?: string;
+}
+
+export interface KeyPickup {
+  x: number;
+  y: number;
+  type: KeyType;
+  collected: boolean;
+}
+
+export interface GearPickup {
+  x: number;
+  y: number;
+  type: GearType;
+  collected: boolean;
+}
+
+export interface NoiseEvent {
+  x: number;
+  y: number;
+  radius: number;
+  timer: number;
+}
+
 export interface Game {
   state: GameState;
   grid: number[][];
@@ -142,6 +215,11 @@ export interface Game {
   toolPickups: ToolPickup[];
   distractions: Distraction[];
   tvs: TV[];
+  doors: Door[];
+  containers: Container[];
+  keyPickups: KeyPickup[];
+  gearPickups: GearPickup[];
+  noiseEvents: NoiseEvent[];
   detection: number;
   cheeseCooldown: number;
   gameOverTimer: number;
