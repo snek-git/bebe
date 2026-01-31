@@ -155,12 +155,34 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
   for (const b of game.babies) {
     if (!onScreen(b.x, b.y, 40, game)) continue;
     const stunned = b.stunTimer > 0;
-    const bx = sx(b.x, game), by = sy(b.y, game);
+    let bx = sx(b.x, game), by = sy(b.y, game);
+
+    // Angry shake for toddler
+    if (b.type === 'toddler' && !stunned) {
+      const intensity = b.chasing ? 3.0 : 1.5;
+      bx += Math.sin(time * 45 + b.y * 7) * intensity;
+      by += Math.cos(time * 51 + b.x * 7) * intensity;
+    }
 
     if (b.type === 'toddler') {
       ctx.fillStyle = stunned ? '#b91c1c' : (b.chasing ? '#ef4444' : '#dc2626');
       ctx.beginPath(); ctx.arc(bx, by, BABY_RADIUS + 1, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 2; ctx.stroke();
+      // Angry eyebrows
+      if (!stunned && !b.distracted) {
+        const eb1x = bx + Math.cos(b.facing - 0.4) * 6, eb1y = by + Math.sin(b.facing - 0.4) * 6;
+        const eb2x = bx + Math.cos(b.facing + 0.4) * 6, eb2y = by + Math.sin(b.facing + 0.4) * 6;
+        ctx.strokeStyle = b.chasing ? '#fff' : '#fca5a5'; ctx.lineWidth = 2;
+        const perp = b.facing + Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(eb1x - Math.cos(perp) * 3, eb1y - Math.sin(perp) * 3 - 1);
+        ctx.lineTo(eb1x + Math.cos(perp) * 2, eb1y + Math.sin(perp) * 2 + 1);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(eb2x + Math.cos(perp) * 3, eb2y + Math.sin(perp) * 3 - 1);
+        ctx.lineTo(eb2x - Math.cos(perp) * 2, eb2y - Math.sin(perp) * 2 + 1);
+        ctx.stroke();
+      }
     } else if (b.type === 'stawler') {
       ctx.fillStyle = stunned ? '#e879a0' : (b.chasing ? '#f472b6' : '#ec4899');
       ctx.beginPath(); ctx.ellipse(bx, by, BABY_RADIUS + 2, BABY_RADIUS - 2, 0, 0, Math.PI * 2); ctx.fill();
