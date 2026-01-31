@@ -126,7 +126,7 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
 
   // Controls help
   ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '10px monospace';
-  ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
+  ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool | R: Restart', VIEW_W / 2, VIEW_H - 8);
 
   // Prize collected message (above hotbar)
   if (p.loot >= TOTAL_LOOT) {
@@ -398,12 +398,12 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
 
     // Puff positions around center
     const puffs = [
-      { dx: 0,                           dy: 0,                          rMul: 1.0 },
-      { dx:  ((s % 7) - 3) * 1.4,       dy: -((s % 5) - 2) * 1.2,     rMul: 0.9 },
-      { dx: -((s % 6) - 3) * 1.3,       dy:  ((s % 4) - 2) * 1.3,     rMul: 0.85 },
-      { dx:  ((s % 9) - 4) * 1.1,       dy:  ((s % 7) - 3) * 1.0,     rMul: 0.8 },
-      { dx: -((s % 5) - 2) * 1.5,       dy: -((s % 6) - 3) * 1.1,     rMul: 0.75 },
-      { dx: (((s * 3) % 7) - 3) * 1.2,  dy: (((s * 7) % 5) - 2) * 1.4, rMul: 0.7 },
+      { dx: 0, dy: 0, rMul: 1.0 },
+      { dx: ((s % 7) - 3) * 1.4, dy: -((s % 5) - 2) * 1.2, rMul: 0.9 },
+      { dx: -((s % 6) - 3) * 1.3, dy: ((s % 4) - 2) * 1.3, rMul: 0.85 },
+      { dx: ((s % 9) - 4) * 1.1, dy: ((s % 7) - 3) * 1.0, rMul: 0.8 },
+      { dx: -((s % 5) - 2) * 1.5, dy: -((s % 6) - 3) * 1.1, rMul: 0.75 },
+      { dx: (((s * 3) % 7) - 3) * 1.2, dy: (((s * 7) % 5) - 2) * 1.4, rMul: 0.7 },
     ];
 
     for (let i = 0; i < puffs.length; i++) {

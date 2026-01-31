@@ -43,7 +43,7 @@ onKeyDown((e) => {
     startMusic();
   }
 
-  if ((game.state === 'gameover' || game.state === 'win') && e.key.toLowerCase() === 'r') {
+  if ((game.state === 'gameover' || game.state === 'win' || game.state === 'playing') && e.key.toLowerCase() === 'r') {
     game = initGame();
     game.state = 'playing';
     startMusic();
