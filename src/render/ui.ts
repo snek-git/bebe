@@ -337,9 +337,9 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
     });
 
     const tt = TOOL_TYPES[p.tools[0]];
-    ctx.fillStyle = SK.accent; ctx.font = 'bold 9px monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(tt.name.slice(0, 5).toUpperCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
+    const tx = toolX + SLOT_SIZE / 2;
+    const ty = barY + SLOT_SIZE / 2;
+    drawToolShape(ctx, tx, ty, p.tools[0], 12, game.time);
     ctx.fillStyle = SK.accent; ctx.font = '9px monospace'; ctx.textBaseline = 'alphabetic';
     ctx.fillText('Q', toolX + 5, barY - 2);
     if (p.tools.length > 1) {

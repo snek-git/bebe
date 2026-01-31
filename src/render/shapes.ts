@@ -1,14 +1,52 @@
 export function drawToolShape(ctx: CanvasRenderingContext2D, px: number, py: number, type: string, s: number, time: number): void {
   switch (type) {
     case 'ipad':
-      ctx.fillStyle = '#52525b';
-      ctx.fillRect(px - s * 0.5, py - s * 0.65, s, s * 1.3);
-      ctx.fillStyle = '#a1a1aa';
-      ctx.fillRect(px - s * 0.38, py - s * 0.5, s * 0.76, s);
-      ctx.fillStyle = '#60a5fa';
-      ctx.globalAlpha = 0.5 + Math.sin(time * 4) * 0.3;
-      ctx.fillRect(px - s * 0.3, py - s * 0.4, s * 0.6, s * 0.8);
+      // Body (metallic casing)
+      ctx.fillStyle = '#d4d4d8';
+      ctx.beginPath();
+      const w = s * 1.1, h = s * 1.5;
+      const x = px - w / 2, y = py - h / 2;
+      const r = s * 0.15;
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.fill();
+
+      // Screen (black bezel)
+      ctx.fillStyle = '#18181b';
+      const bw = s * 0.95, bh = s * 1.25;
+      const bx = px - bw / 2, by = py - bh / 2;
+      ctx.fillRect(bx, by, bw, bh);
+
+      // Liquid Display (glowing blue)
+      ctx.fillStyle = '#3b82f6';
+      ctx.globalAlpha = 0.6 + Math.sin(time * 3) * 0.2;
+      const sw = s * 0.85, sh = s * 1.05;
+      const sx = px - sw / 2, sy = py - sh / 2;
+      ctx.fillRect(sx, sy, sw, sh);
+
+      // App icons (simple grids)
+      ctx.globalAlpha = 0.8 + Math.sin(time * 3) * 0.1;
+      ctx.fillStyle = '#eff6ff';
+      const gap = s * 0.05, iconS = s * 0.18;
+      const startIx = px - (iconS * 1.5 + gap);
+      const startIy = sy + gap * 2;
+      for (let row = 0; row < 2; row++) {
+        for (let col = 0; col < 3; col++) {
+          ctx.fillRect(startIx + col * (iconS + gap), startIy + row * (iconS + gap), iconS, iconS);
+        }
+      }
       ctx.globalAlpha = 1;
+
+      // Home button
+      ctx.fillStyle = '#a1a1aa';
+      ctx.beginPath(); ctx.arc(px, py + h / 2 - s * 0.12, s * 0.05, 0, Math.PI * 2); ctx.fill();
+
+      // Camera dot
+      ctx.fillStyle = '#18181b';
+      ctx.beginPath(); ctx.arc(px, py - h / 2 + s * 0.12, s * 0.03, 0, Math.PI * 2); ctx.fill();
       break;
     case 'remote':
       ctx.fillStyle = '#3f3f46';
