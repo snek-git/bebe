@@ -67,10 +67,11 @@ export function updateCamera(game: Game, dt: number): void {
 }
 
 export function updateMinimapSeen(game: Game, dt: number): void {
-  const startX = game.camera.x / T;
-  const startY = game.camera.y / T;
-  const endX = (game.camera.x + VIEW_W) / T;
-  const endY = (game.camera.y + VIEW_H) / T;
+  const margin = 5; // dissolve clouds within 5 tiles beyond viewport edge
+  const startX = game.camera.x / T - margin;
+  const startY = game.camera.y / T - margin;
+  const endX = (game.camera.x + VIEW_W) / T + margin;
+  const endY = (game.camera.y + VIEW_H) / T + margin;
   for (const cloud of game.minimapClouds) {
     if (cloud.dissolve >= 1) continue;
     if (cloud.tx >= startX && cloud.tx <= endX && cloud.ty >= startY && cloud.ty <= endY) {

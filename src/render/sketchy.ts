@@ -21,14 +21,14 @@ function jitter(a: number): number {
 export function crayonGrain(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, w: number, h: number,
-  alpha = 0.04,
+  alpha = 0.06,
 ): void {
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
   ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 0.7;
+  ctx.lineWidth = 1.0;
   ctx.globalAlpha = alpha;
   const step = 4;
   for (let d = -h; d < w; d += step) {
@@ -56,8 +56,8 @@ export function crayonText(
     jitterAmt?: number;
   },
 ): void {
-  const passes = opts.passes ?? 3;
-  const j = opts.jitterAmt ?? 0.8;
+  const passes = opts.passes ?? 2;
+  const j = opts.jitterAmt ?? 0.4;
   const prevAlpha = ctx.globalAlpha;
 
   ctx.font = opts.font;
@@ -84,8 +84,8 @@ export function sketchyRect(
   x: number, y: number, w: number, h: number,
   opts: { fill?: string; stroke?: string; lineWidth?: number; jitterAmt?: number; grain?: boolean } = {},
 ): void {
-  const j = opts.jitterAmt ?? 2.5;
-  const lw = opts.lineWidth ?? 2;
+  const j = opts.jitterAmt ?? 1.2;
+  const lw = opts.lineWidth ?? 3.5;
 
   if (opts.fill) {
     ctx.fillStyle = opts.fill;
@@ -98,11 +98,11 @@ export function sketchyRect(
   if (opts.stroke) {
     const segsH = Math.max(2, Math.round(w / 15));
     const segsV = Math.max(2, Math.round(h / 15));
-    for (let pass = 0; pass < 3; pass++) {
+    for (let pass = 0; pass < 2; pass++) {
       ctx.save();
       ctx.strokeStyle = opts.stroke;
-      ctx.lineWidth = lw + jitter(lw * 0.4);
-      ctx.globalAlpha = 0.35 + Math.random() * 0.35;
+      ctx.lineWidth = lw + jitter(lw * 0.35);
+      ctx.globalAlpha = 0.5 + Math.random() * 0.35;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -126,15 +126,15 @@ export function sketchyLine(
   x1: number, y1: number, x2: number, y2: number,
   opts: { stroke?: string; lineWidth?: number; jitterAmt?: number } = {},
 ): void {
-  const j = opts.jitterAmt ?? 1.5;
-  const lw = opts.lineWidth ?? 2;
+  const j = opts.jitterAmt ?? 0.8;
+  const lw = opts.lineWidth ?? 3.5;
   const segs = Math.max(4, Math.round(Math.hypot(x2 - x1, y2 - y1) / 8));
 
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < 2; pass++) {
     ctx.save();
     ctx.strokeStyle = opts.stroke ?? SK.cardStroke;
-    ctx.lineWidth = lw + jitter(lw * 0.3);
-    ctx.globalAlpha = 0.35 + Math.random() * 0.35;
+    ctx.lineWidth = lw + jitter(lw * 0.35);
+    ctx.globalAlpha = 0.5 + Math.random() * 0.35;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x1 + jitter(j), y1 + jitter(j));
@@ -159,8 +159,8 @@ export function sketchyRoundRect(
   opts: { fill?: string; stroke?: string; lineWidth?: number; jitterAmt?: number; grain?: boolean } = {},
 ): void {
   const rr = Math.min(r, w / 2, h / 2);
-  const j = opts.jitterAmt ?? 2;
-  const lw = opts.lineWidth ?? 2;
+  const j = opts.jitterAmt ?? 1.0;
+  const lw = opts.lineWidth ?? 3.5;
 
   function cleanRoundPath() {
     ctx.beginPath();
@@ -190,11 +190,11 @@ export function sketchyRoundRect(
   }
 
   if (opts.stroke) {
-    for (let pass = 0; pass < 3; pass++) {
+    for (let pass = 0; pass < 2; pass++) {
       ctx.save();
       ctx.strokeStyle = opts.stroke;
-      ctx.lineWidth = lw + jitter(lw * 0.3);
-      ctx.globalAlpha = 0.35 + Math.random() * 0.35;
+      ctx.lineWidth = lw + jitter(lw * 0.35);
+      ctx.globalAlpha = 0.5 + Math.random() * 0.35;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       const jx = () => jitter(j);
@@ -223,8 +223,8 @@ export function crayonCircle(
   cx: number, cy: number, radius: number,
   opts: { fill?: string; stroke?: string; lineWidth?: number; jitterAmt?: number } = {},
 ): void {
-  const j = opts.jitterAmt ?? 2;
-  const lw = opts.lineWidth ?? 2;
+  const j = opts.jitterAmt ?? 1.0;
+  const lw = opts.lineWidth ?? 3.5;
 
   if (opts.fill) {
     ctx.beginPath();
@@ -235,11 +235,11 @@ export function crayonCircle(
 
   if (opts.stroke) {
     const points = 20;
-    for (let pass = 0; pass < 3; pass++) {
+    for (let pass = 0; pass < 2; pass++) {
       ctx.save();
       ctx.strokeStyle = opts.stroke;
-      ctx.lineWidth = lw + jitter(lw * 0.3);
-      ctx.globalAlpha = 0.35 + Math.random() * 0.35;
+      ctx.lineWidth = lw + jitter(lw * 0.35);
+      ctx.globalAlpha = 0.5 + Math.random() * 0.35;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       ctx.beginPath();

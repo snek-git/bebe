@@ -16,10 +16,10 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const milkIndex = Math.min(5, Math.floor(det / 20));
   const fillFraction = (det % 20) / 20;
 
-  const bottleW = 16, bottleH = 24, bottleGap = 4;
+  const bottleW = 22, bottleH = 34, bottleGap = 5;
   const totalW = 5 * bottleW + 4 * bottleGap;
   const startX = VIEW_W / 2 - totalW / 2;
-  const baseY = 10;
+  const baseY = 8;
 
   for (let i = 0; i < 5; i++) {
     const bx = startX + i * (bottleW + bottleGap);
@@ -44,57 +44,57 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   // Key cards (top-left)
   if (p.keys.length > 0) {
     let keyX = 12;
-    ctx.font = 'bold 9px monospace'; ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 11px monospace'; ctx.textBaseline = 'alphabetic';
     const colors: Record<string, string> = { keyA: '#ef4444', keyB: '#3b82f6', keyC: '#22c55e' };
     for (const k of p.keys) {
       ctx.fillStyle = colors[k] || '#facc15';
-      ctx.fillRect(keyX, 22, 20, 10);
+      ctx.fillRect(keyX, 22, 24, 13);
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
-      ctx.fillText(k.replace('key', ''), keyX + 10, 31);
-      keyX += 24;
+      ctx.fillText(k.replace('key', ''), keyX + 12, 33);
+      keyX += 28;
     }
   }
 
   // Gear icons (top-left, below keys)
   if (p.gear.length > 0) {
-    ctx.textAlign = 'left'; ctx.font = '9px monospace';
+    ctx.textAlign = 'left'; ctx.font = 'bold 11px monospace';
     let gx = 12;
     for (const g of p.gear) {
       if (g === 'sneakers') {
         ctx.fillStyle = '#4ade80';
-        ctx.fillText('SNEAK', gx, 46);
+        ctx.fillText('SNEAK', gx, 50);
       } else {
         ctx.fillStyle = '#a855f7';
-        ctx.fillText('SHADE', gx, 46);
+        ctx.fillText('SHADE', gx, 50);
       }
-      gx += 50;
+      gx += 56;
     }
   }
 
   // Peekaboo stamina bar
-  const pbw = 80, pbh = 8, pbx = VIEW_W - pbw - 12, pby = 30;
+  const pbw = 96, pbh = 10, pbx = VIEW_W - pbw - 12, pby = 32;
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
   ctx.fillStyle = SK.cardFill; ctx.fillRect(pbx, pby, pbw, pbh);
   const stPct = p.peekStamina / PEEKABOO_MAX;
   ctx.fillStyle = p.peekExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
   ctx.fillRect(pbx, pby, pbw * stPct, pbh);
-  sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 1, jitterAmt: 0.8, grain: false });
+  sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.5, grain: false });
   const showPulse = p.hiding && game.peekabooPulseTimer > 0;
   if (!showPulse) {
     crayonText(ctx, 'peekaboo', pbx + pbw / 2, pby - 3, {
       fill: p.peekExhausted ? '#ef4444' : SK.dim,
-      font: 'bold 9px monospace', jitterAmt: 0.4, passes: 2,
+      font: 'bold 11px monospace', jitterAmt: 0.3, passes: 2,
     });
     ctx.textAlign = 'right';
   }
 
   // Status text
-  ctx.textAlign = 'right'; ctx.font = '10px monospace';
+  ctx.textAlign = 'right'; ctx.font = '12px monospace';
   if (showPulse) {
     const t = Math.max(0, Math.min(1, game.peekabooPulseTimer / 2.0));
     const wave = (Math.sin(time * 10) + 1) / 2;
-    const size = 9 + Math.round(wave * 2);
+    const size = 11 + Math.round(wave * 2);
     ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
     const stPct2 = p.peekStamina / PEEKABOO_MAX;
     let r = 74, g = 222, b = 128;
@@ -111,28 +111,28 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     crayonText(ctx, 'peekaboo', pbx + pbw / 2, pby - 3, {
       fill: `rgb(${r}, ${g}, ${b})`,
       font: `bold ${size}px monospace`,
-      jitterAmt: 0.5, passes: 2,
+      jitterAmt: 0.3, passes: 2,
     });
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
     ctx.textAlign = 'right';
   } else if (p.looting) {
-    ctx.fillStyle = SK.warning; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
+    ctx.fillStyle = SK.warning; ctx.font = 'bold 12px monospace'; ctx.fillText('LOOTING...', VIEW_W - 12, 22);
   } else if (p.searching) {
-    ctx.fillStyle = SK.accent; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
+    ctx.fillStyle = SK.accent; ctx.font = 'bold 12px monospace'; ctx.fillText('SEARCHING...', VIEW_W - 12, 22);
   } else if (p.sprinting) {
-    ctx.fillStyle = SK.primary; ctx.fillText('SPRINT', VIEW_W - 12, 22);
+    ctx.fillStyle = SK.primary; ctx.font = 'bold 12px monospace'; ctx.fillText('SPRINT', VIEW_W - 12, 22);
   }
 
   // Controls help
-  ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '9px monospace';
+  ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '10px monospace';
   ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
 
   // Prize collected message (above hotbar)
   if (p.loot >= TOTAL_LOOT) {
     ctx.globalAlpha = Math.sin(time * 4) * 0.3 + 0.7;
     crayonText(ctx, 'GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 62, {
-      fill: SK.highlight, font: 'bold 11px monospace', jitterAmt: 0.5, passes: 2,
+      fill: SK.highlight, font: 'bold 13px monospace', jitterAmt: 0.3, passes: 2,
     });
     ctx.globalAlpha = 1;
   }
@@ -151,13 +151,13 @@ function drawMilkBottle(
   x: number, y: number, w: number, h: number,
   fillLevel: number, animating: boolean,
 ): void {
-  const bodyW = w - 4, bodyH = h - 6;
-  const bodyX = x + 2, bodyY = y + 6;
-  const neckW = 6, neckH = 4;
+  const bodyW = w - 6, bodyH = h - 8;
+  const bodyX = x + 3, bodyY = y + 8;
+  const neckW = 8, neckH = 5;
   const neckX = x + w / 2 - neckW / 2, neckY = bodyY - neckH;
-  const capW = 8, capH = 2;
+  const capW = 11, capH = 3;
   const capX = x + w / 2 - capW / 2, capY = neckY - capH;
-  const r = 2; // corner radius for body
+  const r = 3; // corner radius for body
 
   // Build bottle clip path
   function bottlePath() {
@@ -182,8 +182,8 @@ function drawMilkBottle(
   // Empty outline
   ctx.save();
   bottlePath();
-  ctx.strokeStyle = 'rgba(72,129,140,0.25)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(72,129,140,0.45)';
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   if (fillLevel > 0) {
@@ -210,9 +210,9 @@ function drawMilkBottle(
       ctx.save();
       bottlePath();
       ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.shadowColor = 'rgba(255,255,255,0.35)';
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 6;
       ctx.stroke();
       ctx.restore();
     }
@@ -221,8 +221,8 @@ function drawMilkBottle(
   ctx.restore();
 }
 
-const SLOT_SIZE = 34;
-const SLOT_GAP = 3;
+const SLOT_SIZE = 40;
+const SLOT_GAP = 4;
 
 function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
@@ -243,19 +243,19 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.fillRect(csx, barY, SLOT_SIZE, SLOT_SIZE);
   sketchyRect(ctx, csx + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1, {
     stroke: p.cheese > 0 ? SK.accent : '#374151',
-    lineWidth: 1.2, jitterAmt: 1, grain: false,
+    lineWidth: 2.5, jitterAmt: 0.6, grain: false,
   });
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (p.cheese > 0) {
     ctx.fillStyle = '#fde047';
     ctx.beginPath();
-    ctx.arc(csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 2, 8, 0, Math.PI * 2);
+    ctx.arc(csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 2, 10, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px monospace';
-    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
+    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 6);
   } else {
-    ctx.fillStyle = SK.dim; ctx.font = '8px monospace';
+    ctx.fillStyle = SK.dim; ctx.font = '10px monospace';
     ctx.fillText('--', csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
   }
   if (game.cheeseCooldown > 0) {
@@ -268,23 +268,23 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
   if (hasTools) {
     const toolX = barX + SLOT_SIZE + SLOT_GAP + 5;
     sketchyLine(ctx, toolX - 5, barY + 2, toolX - 5, barY + SLOT_SIZE - 2, {
-      stroke: SK.dim, lineWidth: 1, jitterAmt: 1,
+      stroke: SK.dim, lineWidth: 2.5, jitterAmt: 0.5,
     });
 
     ctx.fillStyle = 'rgba(20,57,94,0.8)';
     ctx.fillRect(toolX, barY, SLOT_SIZE, SLOT_SIZE);
     sketchyRect(ctx, toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1, {
-      stroke: SK.accent, lineWidth: 1.2, jitterAmt: 1, grain: false,
+      stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.6, grain: false,
     });
 
     const tt = TOOL_TYPES[p.tools[0]];
-    ctx.fillStyle = SK.accent; ctx.font = 'bold 7px monospace';
+    ctx.fillStyle = SK.accent; ctx.font = 'bold 9px monospace';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(tt.name.slice(0, 5).toUpperCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
-    ctx.fillStyle = SK.accent; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = SK.accent; ctx.font = '9px monospace'; ctx.textBaseline = 'alphabetic';
     ctx.fillText('Q', toolX + 5, barY - 2);
     if (p.tools.length > 1) {
-      ctx.fillStyle = SK.dim; ctx.font = '7px monospace'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = SK.dim; ctx.font = '9px monospace'; ctx.textBaseline = 'alphabetic';
       ctx.fillText('+' + (p.tools.length - 1), toolX + SLOT_SIZE - 6, barY + SLOT_SIZE - 3);
     }
   }
@@ -297,7 +297,7 @@ function renderCrosshair(ctx: CanvasRenderingContext2D, game: Game): void {
   const gap = 3;
 
   ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2.5;
 
   // Horizontal lines
   ctx.beginPath();
@@ -453,7 +453,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.globalAlpha = 1;
   }
 
-  ctx.strokeStyle = 'rgba(72,129,140,0.35)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(72,129,140,0.45)'; ctx.lineWidth = 1.5;
   ctx.strokeRect(
     mmX + (game.camera.x / T) * mmS,
     mmY + (game.camera.y / T) * mmS,
@@ -489,7 +489,7 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
 
   // Center ring
   crayonCircle(ctx, cx, cy, radius + 30, {
-    fill: 'rgba(20,57,94,0.7)', stroke: SK.dim, lineWidth: 2,
+    fill: 'rgba(20,57,94,0.7)', stroke: SK.dim, lineWidth: 2.5, jitterAmt: 0.8,
   });
 
   // Sector lines
@@ -498,7 +498,7 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
     sketchyLine(ctx, cx, cy,
       cx + Math.cos(ang) * (radius + 30),
       cy + Math.sin(ang) * (radius + 30),
-      { stroke: 'rgba(57,100,107,0.5)', lineWidth: 1, jitterAmt: 1.5 },
+      { stroke: 'rgba(57,100,107,0.5)', lineWidth: 1.5, jitterAmt: 0.6 },
     );
   }
 
@@ -515,8 +515,8 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
     crayonCircle(ctx, ix, iy, bgRadius, {
       fill: hovered ? 'rgba(72,129,140,0.35)' : 'rgba(20,57,94,0.8)',
       stroke: hovered ? SK.accent : SK.dim,
-      lineWidth: hovered ? 2.5 : 1,
-      jitterAmt: hovered ? 2 : 1.5,
+      lineWidth: hovered ? 3.5 : 2.5,
+      jitterAmt: hovered ? 1.0 : 0.8,
     });
 
     // Tool icon
@@ -525,21 +525,21 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
     // Tool name
     crayonText(ctx, tt.name, ix, iy + bgRadius + 12, {
       fill: hovered ? SK.highlight : SK.dim,
-      font: hovered ? 'bold 10px monospace' : '9px monospace',
-      jitterAmt: 0.5, passes: 2,
+      font: hovered ? 'bold 12px monospace' : '11px monospace',
+      jitterAmt: 0.3, passes: 2,
     });
 
     // Active indicator (first item = current)
     if (i === 0) {
-      ctx.fillStyle = SK.accent; ctx.font = '7px monospace';
+      ctx.fillStyle = SK.accent; ctx.font = '9px monospace';
       ctx.fillText('active', ix, iy - bgRadius - 4);
     }
   }
 
   // Center text
   crayonText(ctx, 'SELECT', cx, cy, {
-    fill: SK.primary, font: '9px monospace',
-    baseline: 'middle', jitterAmt: 0.5, passes: 2,
+    fill: SK.primary, font: '11px monospace',
+    baseline: 'middle', jitterAmt: 0.3, passes: 2,
   });
 }
 
