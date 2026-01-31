@@ -102,14 +102,14 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0e0e1a');
 
     // Graphics layers for custom rendering (doors, entities, vision, UI)
-    this.worldGfx = this.add.graphics();
-    this.visionGfx = this.add.graphics();
+    this.worldGfx = this.add.graphics().setDepth(10);
+    this.visionGfx = this.add.graphics().setDepth(5);
 
-    // Player - simple circle with physics
+    // Player - simple circle with physics (below worldGfx so eyes draw on top)
     this.playerSprite = this.add.arc(
       this.game_.player.x, this.game_.player.y,
       PLAYER_RADIUS, 0, 360, false, 0x4ade80
-    );
+    ).setDepth(9);
     this.physics.add.existing(this.playerSprite);
     const playerBody = this.playerSprite.body as Phaser.Physics.Arcade.Body;
     playerBody.setCircle(PLAYER_RADIUS);
