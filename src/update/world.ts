@@ -65,3 +65,17 @@ export function updateCamera(game: Game, dt: number): void {
   game.camera.x = Math.max(0, Math.min(game.camera.x, COLS * T - VIEW_W));
   game.camera.y = Math.max(0, Math.min(game.camera.y, ROWS * T - VIEW_H));
 }
+
+export function updateMinimapSeen(game: Game): void {
+  const startX = Math.floor(game.camera.x / T);
+  const startY = Math.floor(game.camera.y / T);
+  const endX = Math.floor((game.camera.x + VIEW_W) / T);
+  const endY = Math.floor((game.camera.y + VIEW_H) / T);
+  for (let y = startY; y <= endY; y++) {
+    if (y < 0 || y >= game.minimapSeen.length) continue;
+    for (let x = startX; x <= endX; x++) {
+      if (x < 0 || x >= game.minimapSeen[0].length) continue;
+      game.minimapSeen[y][x] = true;
+    }
+  }
+}

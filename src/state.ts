@@ -195,6 +195,7 @@ export function initGame(): Game {
     retryFadeTimer: 0,
     retryPending: false,
     peekabooPulseTimer: 0,
+    minimapSeen: Array.from({ length: grid.length }, () => Array(grid[0].length).fill(false)),
     wheelOpen: false,
     wheelHover: -1,
     qDownTime: 0,

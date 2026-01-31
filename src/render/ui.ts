@@ -308,6 +308,48 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
     }
   }
 
+  // Minimap fog-of-war: permanently reveal camera-seen tiles, cover unseen in white
+  ctx.save();
+  ctx.beginPath();
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (game.minimapSeen[y]?.[x]) continue;
+      ctx.rect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
+    }
+  }
+  ctx.clip();
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(mmX, mmY, mmW, mmH);
+  const t = game.time;
+  const puffCount = Math.max(36, Math.round((mmW * mmH) / 70));
+  for (let i = 0; i < puffCount; i++) {
+    const fx = (i * 37.2) % 1;
+    const fy = (i * 19.7) % 1;
+    const driftX = Math.sin(t * 0.35 + i) * 2.0;
+    const driftY = Math.cos(t * 0.28 + i * 1.7) * 2.0;
+    const cx = mmX + fx * mmW + driftX;
+    const cy = mmY + fy * mmH + driftY;
+    const r1 = 4 + (i % 4);
+    const r2 = 6 + ((i + 1) % 4);
+    const pick = i % 5;
+    ctx.fillStyle =
+      pick === 0 ? 'rgba(226,232,240,0.75)' :
+      pick === 1 ? 'rgba(203,213,225,0.6)' :
+      pick === 2 ? '#eef2f6' :
+      pick === 3 ? '#f1f5f9' :
+      'rgba(241,245,249,0.85)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + r1, cy - 1, r2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx - r1 * 0.6, cy + 1, r2 - 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
   ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
   ctx.strokeRect(
     mmX + (game.camera.x / T) * mmS,

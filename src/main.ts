@@ -10,7 +10,7 @@ import { updateProjectiles } from './update/projectiles';
 import { updateDetection } from './update/detection';
 import {
   updateDistractions, updateTVs, updateDoors, updateNoiseEvents,
-  checkPickups, checkWin, updateCamera,
+  checkPickups, checkWin, updateCamera, updateMinimapSeen,
 } from './update/world';
 import { render } from './render/index';
 import { retryButtonRect, RETRY_APPEAR_TIME, RETRY_PRESS_DURATION, RETRY_FADE_DURATION } from './render/screens';
@@ -166,6 +166,7 @@ function update(dt: number): void {
   updateDetection(game, dt);
   checkPickups(game);
   checkWin(game);
+  updateMinimapSeen(game);
   updateCamera(game, dt);
 }
 

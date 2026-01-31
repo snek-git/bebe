@@ -229,6 +229,7 @@ export interface Game {
   retryFadeTimer: number;
   retryPending: boolean;
   peekabooPulseTimer: number;
+  minimapSeen: boolean[][];
   wheelOpen: boolean;
   wheelHover: number;
   qDownTime: number;
