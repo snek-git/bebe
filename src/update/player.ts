@@ -6,7 +6,7 @@ import {
 import { resolveWalls, dist } from '../utils';
 import { isDown } from '../input';
 import { isDoorBlocking, getDoorAt } from '../map';
-import type { Game, NoiseEvent } from '../types';
+import type { Game, NoiseEvent, ToolType } from '../types';
 
 export function updatePlayer(game: Game, dt: number): void {
   const p = game.player;
@@ -88,13 +88,16 @@ export function updatePlayer(game: Game, dt: number): void {
           case 'cheese':
             p.cheese++;
             break;
+          case 'tool':
+            p.tools.push(c.contents.item as ToolType);
+            break;
           case 'gear':
             if (!p.gear.includes(c.contents.item as any)) {
               p.gear.push(c.contents.item as any);
             }
             break;
           case 'loot':
-            p.cheese++;
+            p.cheese += 3;
             break;
           case 'poop':
             break;

@@ -6,6 +6,7 @@ import {
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape } from './shapes';
+import { babySpritesReady, getBabyFrame } from '../sprites';
 import type { Game } from '../types';
 
 function onScreen(x: number, y: number, m: number, game: Game): boolean {
@@ -240,21 +241,24 @@ export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 }
 
+const SPRITE_SIZE = T * 2;
+const FRAME_DURATION = 0.15;
+
 export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
+  const useSprites = babySpritesReady();
+
   for (const b of game.babies) {
-    if (!onScreen(b.x, b.y, 40, game)) continue;
+    if (!onScreen(b.x, b.y, SPRITE_SIZE, game)) continue;
     const stunned = b.stunTimer > 0;
     let bx = sx(b.x, game), by = sy(b.y, game);
 
-    // Angry shake for toddler
+    // Toddler shake
     if (b.type === 'toddler' && !stunned) {
       if (b.chasing) {
-        // Fast violent tremor when chasing
         bx += Math.sin(time * 45 + b.y * 7) * 3.0;
         by += Math.cos(time * 51 + b.x * 7) * 3.0;
       } else {
-        // Wide left-right searching sway perpendicular to facing
         const sway = Math.sin(time * 6) * 4.5;
         const perp = b.facing + Math.PI / 2;
         bx += Math.cos(perp) * sway;
@@ -262,56 +266,55 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
       }
     }
 
-    if (b.type === 'toddler') {
-      ctx.fillStyle = stunned ? '#b91c1c' : (b.chasing ? '#ef4444' : '#dc2626');
-      ctx.beginPath(); ctx.arc(bx, by, BABY_RADIUS + 1, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 2; ctx.stroke();
-      // Angry eyebrows
-      if (!stunned && !b.distracted) {
-        const eb1x = bx + Math.cos(b.facing - 0.4) * 6, eb1y = by + Math.sin(b.facing - 0.4) * 6;
-        const eb2x = bx + Math.cos(b.facing + 0.4) * 6, eb2y = by + Math.sin(b.facing + 0.4) * 6;
-        ctx.strokeStyle = b.chasing ? '#fff' : '#fca5a5'; ctx.lineWidth = 2;
-        const perp = b.facing + Math.PI / 2;
-        ctx.beginPath();
-        ctx.moveTo(eb1x - Math.cos(perp) * 3, eb1y - Math.sin(perp) * 3 - 1);
-        ctx.lineTo(eb1x + Math.cos(perp) * 2, eb1y + Math.sin(perp) * 2 + 1);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(eb2x + Math.cos(perp) * 3, eb2y + Math.sin(perp) * 3 - 1);
-        ctx.lineTo(eb2x - Math.cos(perp) * 2, eb2y - Math.sin(perp) * 2 + 1);
-        ctx.stroke();
+    // Body
+    if (useSprites) {
+      const moving = b.pauseTimer <= 0 && !stunned;
+      let frameIndex: number;
+      if (moving) {
+        frameIndex = Math.floor(time / FRAME_DURATION) % 4;
+      } else {
+        // Idle: alternate between a lean frame and neutral based on facing
+        const facingLeft = Math.cos(b.facing) < 0;
+        const tick = Math.floor(time / 0.4) % 2;
+        // frames: 0=right-step, 1=neutral, 2=left-step, 3=neutral
+        frameIndex = facingLeft
+          ? (tick === 0 ? 3 : 2)   // neutral <-> left-step
+          : (tick === 0 ? 1 : 0);  // neutral <-> right-step
       }
-    } else if (b.type === 'stawler') {
-      ctx.fillStyle = stunned ? '#e879a0' : (b.chasing ? '#f472b6' : '#ec4899');
-      ctx.beginPath(); ctx.ellipse(bx, by, BABY_RADIUS + 2, BABY_RADIUS - 2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#f9a8d4'; ctx.lineWidth = 1.5; ctx.stroke();
-      if (!stunned) {
-        const hDist = BABY_RADIUS + 4;
-        ctx.fillStyle = '#fbbcce'; ctx.beginPath();
-        ctx.arc(bx + Math.cos(b.facing - 0.6) * hDist, by + Math.sin(b.facing - 0.6) * hDist, 3, 0, Math.PI * 2);
-        ctx.arc(bx + Math.cos(b.facing + 0.6) * hDist, by + Math.sin(b.facing + 0.6) * hDist, 3, 0, Math.PI * 2);
-        ctx.fill();
+      const img = getBabyFrame(frameIndex);
+      const half = SPRITE_SIZE / 2;
+
+      ctx.save();
+      ctx.translate(bx, by);
+      // Rotate sprite to match facing direction. Sprites face "up" so offset by pi/2.
+      ctx.rotate(b.facing + Math.PI / 2);
+      if (stunned) ctx.globalAlpha = 0.5;
+
+      // Tint per type
+      if (b.type === 'toddler' && !stunned) {
+        ctx.filter = b.chasing ? 'hue-rotate(-40deg) saturate(1.8)' : 'hue-rotate(-30deg) saturate(1.4)';
+      } else if (b.type === 'stawler' && !stunned) {
+        ctx.filter = 'hue-rotate(280deg) saturate(1.3)';
       }
+
+      ctx.drawImage(img, -half, -half, SPRITE_SIZE, SPRITE_SIZE);
+      ctx.filter = 'none';
+      ctx.restore();
     } else {
-      ctx.fillStyle = stunned ? '#f97316' : '#fb923c';
+      // Fallback procedural rendering
+      const colors: Record<string, string> = { crawler: '#fb923c', stawler: '#ec4899', toddler: '#dc2626' };
+      ctx.fillStyle = stunned ? '#888' : (colors[b.type] || '#fb923c');
       ctx.beginPath(); ctx.arc(bx, by, BABY_RADIUS, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#fdba74'; ctx.lineWidth = 1.5; ctx.stroke();
     }
 
-    const eo = 4;
-    const e1x = bx + Math.cos(b.facing - 0.4) * eo, e1y = by + Math.sin(b.facing - 0.4) * eo;
-    const e2x = bx + Math.cos(b.facing + 0.4) * eo, e2y = by + Math.sin(b.facing + 0.4) * eo;
-
+    // Stun effects
+    const indY = SPRITE_SIZE / 2 + 4;
     if (stunned) {
-      ctx.strokeStyle = b.type === 'toddler' ? '#7f1d1d' : (b.type === 'stawler' ? '#831843' : '#7c2d12'); ctx.lineWidth = 1.5;
-      for (const [ex, ey] of [[e1x, e1y], [e2x, e2y]]) {
-        ctx.beginPath(); ctx.moveTo(ex - 2, ey - 2); ctx.lineTo(ex + 2, ey + 2);
-        ctx.moveTo(ex + 2, ey - 2); ctx.lineTo(ex - 2, ey + 2); ctx.stroke();
-      }
       const coh = game.cheeses.find(c => c.stuckBaby === b && c.landed);
       if (coh) {
-        const cx = bx + Math.cos(b.facing) * (BABY_RADIUS + 2);
-        const cy = by + Math.sin(b.facing) * (BABY_RADIUS + 2);
+        const cx = bx + Math.cos(b.facing) * (SPRITE_SIZE / 2);
+        const cy = by + Math.sin(b.facing) * (SPRITE_SIZE / 2);
         if (coh.isPacifier) drawToolShape(ctx, cx, cy, 'pacifier', 6, time);
         else {
           ctx.fillStyle = '#fde047'; ctx.beginPath();
@@ -322,32 +325,25 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.fillStyle = '#fde047'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
       for (let i = 0; i < 3; i++) {
         const a = time * 5 + i * 2.094;
-        ctx.fillText('*', bx + Math.cos(a) * 16, by + Math.sin(a) * 16 - 4);
+        ctx.fillText('*', bx + Math.cos(a) * (indY + 6), by + Math.sin(a) * (indY + 6) - 4);
       }
-    } else {
-      if (b.distracted) {
-        ctx.fillStyle = '#f472b6'; ctx.font = '5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('\u2665', e1x, e1y); ctx.fillText('\u2665', e2x, e2y);
-      } else {
-        ctx.fillStyle = '#1e1e2e'; ctx.beginPath();
-        ctx.arc(e1x, e1y, 2.5, 0, Math.PI * 2); ctx.arc(e2x, e2y, 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.beginPath();
-        ctx.arc(e1x + Math.cos(b.facing), e1y + Math.sin(b.facing), 1, 0, Math.PI * 2);
-        ctx.arc(e2x + Math.cos(b.facing), e2y + Math.sin(b.facing), 1, 0, Math.PI * 2); ctx.fill();
-      }
+    } else if (b.distracted) {
+      ctx.fillStyle = '#f472b6'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('\u2665', bx, by - indY);
     }
 
+    // Alert indicators
     if (!stunned && !b.distracted && canBabySee(game, b) && !game.player.hiding) {
       ctx.fillStyle = '#ef4444'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('!', bx, by - BABY_RADIUS - 6);
+      ctx.fillText('!', bx, by - indY);
     }
     if (b.type === 'stawler' && b.chasing && !stunned) {
       ctx.fillStyle = '#f472b6'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('?!', bx, by - BABY_RADIUS - 6);
+      ctx.fillText('?!', bx, by - indY);
     }
     if (b.type === 'toddler' && b.chasing && !stunned) {
       ctx.fillStyle = '#ef4444'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('!!', bx, by - BABY_RADIUS - 8);
+      ctx.fillText('!!', bx, by - indY);
     }
   }
 }
