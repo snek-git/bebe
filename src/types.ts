@@ -76,6 +76,7 @@ export interface Baby {
   roamRoom?: string;
   roomDwell?: number;
   roamQueue?: string[];
+  recentRooms?: string[];
 }
 
 export interface Loot {

@@ -81,7 +81,7 @@ export function initGame(): Game {
     { ...roomPos('lobby', 5, -2), radius: BABY_RADIUS, speed: STAWLER_MAX_SPEED, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, type: 'stawler', vel: 0,
       waypoints: [roomPos('lobby', -5, -2), roomPos('lobby', 5, -2)], chasing: false },
     { ...roomCenter('vault'), radius: BABY_RADIUS, speed: TODDLER_SPEED, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 0, stunTimer: 0, type: 'toddler', vel: 0,
-      waypoints: [], chasing: false, path: [], pathIndex: 0, pathTimer: 0, roamRoom: 'vault', roomDwell: 0, roamQueue: [] },
+      waypoints: [], chasing: false, path: [], pathIndex: 0, pathTimer: 0, roamRoom: 'vault', roomDwell: 0, roamQueue: [], recentRooms: [] },
   ];
 
   return {

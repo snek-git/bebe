@@ -159,9 +159,17 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
 
     // Angry shake for toddler
     if (b.type === 'toddler' && !stunned) {
-      const intensity = b.chasing ? 3.0 : 1.5;
-      bx += Math.sin(time * 45 + b.y * 7) * intensity;
-      by += Math.cos(time * 51 + b.x * 7) * intensity;
+      if (b.chasing) {
+        // Fast violent tremor when chasing
+        bx += Math.sin(time * 45 + b.y * 7) * 3.0;
+        by += Math.cos(time * 51 + b.x * 7) * 3.0;
+      } else {
+        // Wide left-right searching sway perpendicular to facing
+        const sway = Math.sin(time * 6) * 4.5;
+        const perp = b.facing + Math.PI / 2;
+        bx += Math.cos(perp) * sway;
+        by += Math.sin(perp) * sway;
+      }
     }
 
     if (b.type === 'toddler') {

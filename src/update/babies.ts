@@ -214,19 +214,23 @@ export function updateBabies(game: Game, dt: number): void {
       if (curRoom && curRoom !== b.roamRoom) {
         b.roamRoom = curRoom;
         b.roomDwell = 0;
+        if (!b.recentRooms) b.recentRooms = [];
+        if (!b.recentRooms.includes(curRoom)) {
+          b.recentRooms.push(curRoom);
+          if (b.recentRooms.length > 4) b.recentRooms.shift();
+        }
       } else {
         b.roomDwell = (b.roomDwell ?? 0) + dt;
       }
 
-      // Refill room queue when empty — shuffle all valid rooms
+      // Refill room queue — fresh rooms first, recently visited last
       if (!b.roamQueue || b.roamQueue.length === 0) {
-        const pool = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor')
-          .map(r => r.id);
-        for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]];
-        }
-        b.roamQueue = pool;
+        const recent = b.recentRooms || [];
+        const all = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor').map(r => r.id);
+        const fresh = all.filter(r => !recent.includes(r));
+        const stale = all.filter(r => recent.includes(r));
+        const shuffle = (a: string[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+        b.roamQueue = [...shuffle(fresh), ...shuffle(stale)];
       }
 
       const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
@@ -249,16 +253,16 @@ export function updateBabies(game: Game, dt: number): void {
         if (td < 8) {
           b.pathIndex = (b.pathIndex ?? 0) + 1;
         } else {
-          // Violent erratic movement: speed bursts + lateral jitter
-          const burst = 0.8 + 0.4 * Math.abs(Math.sin(game.time * 11 + b.y));
-          const jitter = Math.sin(game.time * 17 + b.x) * 12;
+          // Searching movement: deliberate left-right-left-right zigzag
+          const burst = 0.85 + 0.3 * Math.abs(Math.sin(game.time * 9 + b.y));
+          const zigzag = Math.sin(game.time * 5) * 20;
           const nx = tdx / td, ny = tdy / td;
-          b.x += (nx * TODDLER_SPEED * burst - ny * jitter) * dt;
-          b.y += (ny * TODDLER_SPEED * burst + nx * jitter) * dt;
+          b.x += (nx * TODDLER_SPEED * burst - ny * zigzag) * dt;
+          b.y += (ny * TODDLER_SPEED * burst + nx * zigzag) * dt;
           resolveWalls(game.grid, b);
-          // Frantic head scanning while roaming
-          const scanJitter = Math.sin(game.time * 9) * 0.6;
-          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx) + scanJitter, toddlerTurn);
+          // Head snaps left-right while searching
+          const scanSnap = Math.sin(game.time * 5) * 0.8;
+          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx) + scanSnap, toddlerTurn);
         }
       }
       continue;
