@@ -73,6 +73,8 @@ export interface Baby {
   path?: Point[];
   pathIndex?: number;
   pathTimer?: number;
+  roamRoom?: string;
+  roomDwell?: number;
 }
 
 export interface Loot {

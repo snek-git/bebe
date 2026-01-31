@@ -26,6 +26,7 @@ export const TODDLER_CHASE_SPEED = 75;
 export const TODDLER_CHASE_RANGE = 192;
 export const TODDLER_PATH_INTERVAL = 0.5;
 export const TODDLER_ROAM_INTERVAL = 2.0;
+export const TODDLER_ROOM_DWELL_MAX = 8.0;
 export const DISTRACTION_DURATION = 5.0;
 export const DISTRACTION_RANGE = 140;
 export const TV_DURATION = 8.0;

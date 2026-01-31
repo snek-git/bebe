@@ -1,7 +1,7 @@
 import {
-  BABY_RADIUS, PLAYER_RADIUS,
+  BABY_RADIUS, PLAYER_RADIUS, T,
   STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
-  TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_CHASE_RANGE, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL,
+  TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_CHASE_RANGE, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL, TODDLER_ROOM_DWELL_MAX,
   VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
 } from '../config';
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
@@ -10,6 +10,14 @@ import { findPath } from '../pathfinding';
 import type { Game, Baby, Point } from '../types';
 
 const BABY_TURN_RATE = 6.0; // radians per second
+
+function getCurrentRoom(x: number, y: number): string | null {
+  const tx = Math.floor(x / T), ty = Math.floor(y / T);
+  for (const r of ROOM_DEFS) {
+    if (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h) return r.id;
+  }
+  return null;
+}
 
 function rotateTowards(current: number, target: number, maxDelta: number): number {
   const d = angleDiff(target, current);
@@ -192,13 +200,23 @@ export function updateBabies(game: Game, dt: number): void {
         continue;
       }
 
-      if (b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
-        const rooms = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor');
+      const curRoom = getCurrentRoom(b.x, b.y);
+      if (curRoom && curRoom !== b.roamRoom) {
+        b.roamRoom = curRoom;
+        b.roomDwell = 0;
+      } else {
+        b.roomDwell = (b.roomDwell ?? 0) + dt;
+      }
+
+      const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
+      if (dwellExpired || b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
+        const rooms = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor' && r.id !== curRoom);
         const room = rooms[Math.floor(Math.random() * rooms.length)];
         const target = roomCenter(room.id);
         b.path = findPath(game.grid, b.x, b.y, target.x, target.y);
         b.pathIndex = 0;
         b.pathTimer = TODDLER_ROAM_INTERVAL;
+        if (dwellExpired) b.roomDwell = 0;
       }
 
       if (b.path && b.path.length > 0 && b.pathIndex! < b.path.length) {
