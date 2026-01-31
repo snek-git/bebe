@@ -1,4 +1,10 @@
-import type { RoomDef, TVDef, LootTypeDef, ToolTypeDef, DoorDef, ContainerDef } from './types';
+import type { LootTypeDef, ToolTypeDef } from './types';
+
+// Re-export spatial definitions from level-data
+export {
+  ROOM_DEFS, CORRIDORS, TV_DEFS, DOOR_DEFS, CONTAINER_DEFS,
+  BABY_DEFS, KEY_PICKUP_DEFS, TOOL_PICKUP_DEFS, LOOT_DEFS,
+} from './level-data';
 
 export const T = 32;
 export const VIEW_W = 800;
@@ -47,104 +53,6 @@ export const NOISE_DURATION = 0.5;
 export const SNEAKER_DETECTION_MULT = 0.6;
 export const SUNGLASSES_DRAIN_MULT = 0.7;
 
-// 9 rooms: hub + 3 wings layout
-// Grid is 50 cols x 40 rows, each tile 32px
-export const ROOM_DEFS: RoomDef[] = [
-  // Ground floor
-  { id: 'foyer',       name: 'FOYER',          x: 21, y: 40, w: 8,  h: 3 },
-  { id: 'entrance',    name: 'ENTRANCE',       x: 20, y: 35, w: 10, h: 4 },
-  { id: 'lobby',       name: 'LOBBY',          x: 14, y: 24, w: 22, h: 9, furn: [[9, 3, 4, 2]] },
-
-  // Wing A (left) - Offices
-  { id: 'break_room',  name: 'BREAK ROOM',     x: 2,  y: 24, w: 10, h: 9, furn: [[3, 3, 4, 2]] },
-  { id: 'manager',     name: 'MANAGER',        x: 2,  y: 13, w: 10, h: 8, furn: [[3, 3, 4, 2]] },
-
-  // Wing B (right) - Tech
-  { id: 'conference',  name: 'CONFERENCE',     x: 38, y: 24, w: 10, h: 9, furn: [[2, 3, 6, 3]] },
-  { id: 'security',    name: 'SECURITY',       x: 38, y: 13, w: 10, h: 8, furn: [[3, 2, 4, 2]] },
-
-  // Restricted zone (past locked gate)
-  { id: 'copy_room',   name: 'COPY ROOM',      x: 2,  y: 2,  w: 10, h: 8, furn: [[2, 1, 1, 6], [7, 1, 1, 6]] },
-  { id: 'safe_dep',    name: 'SAFE DEPOSIT',   x: 38, y: 2,  w: 10, h: 8, furn: [[2, 2, 6, 1], [2, 5, 6, 1]] },
-
-  // Vault (center top, needs all 3 keys)
-  { id: 'vault',       name: 'VAULT',          x: 18, y: 2,  w: 14, h: 8, furn: [[3, 2, 2, 1], [9, 2, 2, 1], [3, 5, 2, 1], [9, 5, 2, 1]] },
-];
-
-export const CORRIDORS: number[][] = [
-  // Foyer to entrance (vertical)
-  [24, 39, 2, 1],
-  // Entrance to lobby (vertical)
-  [24, 33, 2, 2],
-  // Lobby to Wing A break room (horizontal)
-  [12, 27, 2, 2],
-  // Lobby to Wing B conference (horizontal)
-  [36, 27, 2, 2],
-  // Break room up to manager (vertical, left side)
-  [5, 21, 3, 3],
-  // Conference up to security (vertical, right side)
-  [42, 21, 3, 3],
-  // Center vertical: lobby top to restricted zone (long corridor)
-  [24, 10, 2, 14],
-  // Manager to copy room (vertical, left side)
-  [5, 10, 3, 3],
-  // Security to safe deposit (vertical, right side)
-  [42, 10, 3, 3],
-  // Left restricted corridor (copy room to vault, horizontal)
-  [12, 5, 6, 2],
-  // Right restricted corridor (safe dep to vault, horizontal)
-  [32, 5, 6, 2],
-];
-
-export const TV_DEFS: TVDef[] = [
-  { tx: 3,  ty: 25, room: 'break_room' },
-  { tx: 25, ty: 25, room: 'lobby' },
-  { tx: 45, ty: 27, room: 'conference' },
-  { tx: 45, ty: 14, room: 'security' },
-  { tx: 24, ty: 3,  room: 'vault' },
-];
-
-export const DOOR_DEFS: DoorDef[] = [
-  // Lobby to break room
-  { tx: 13, ty: 28, orientation: 'v', initial: 'closed' },
-  // Lobby to conference
-  { tx: 36, ty: 28, orientation: 'v', initial: 'closed' },
-  // Break room corridor to manager
-  { tx: 6,  ty: 21, orientation: 'h', initial: 'closed' },
-  // Conference corridor to security
-  { tx: 43, ty: 21, orientation: 'h', initial: 'closed' },
-  // Upper gate (locked, needs Key A) -- blocks center corridor
-  { tx: 24, ty: 16, orientation: 'h', initial: 'locked', requiredKey: 'keyA' },
-  // Vault entrance (locked, all 3 keys)
-  { tx: 24, ty: 10, orientation: 'h', initial: 'locked', requiredKey: 'keyC' },
-  // Internal door in left wing upper area
-  { tx: 6,  ty: 11, orientation: 'h', initial: 'closed' },
-];
-
-export const CONTAINER_DEFS: ContainerDef[] = [
-  // Lobby
-  { tx: 18, ty: 26, room: 'lobby' },
-  { tx: 20, ty: 26, room: 'lobby' },
-  // Break room
-  { tx: 3,  ty: 28, room: 'break_room' },
-  { tx: 9,  ty: 28, room: 'break_room' },
-  // Manager
-  { tx: 9,  ty: 17, room: 'manager' },
-  // Conference
-  { tx: 40, ty: 30, room: 'conference' },
-  // Security
-  { tx: 44, ty: 18, room: 'security' },
-  // Copy room
-  { tx: 5,  ty: 4,  room: 'copy_room' },
-  { tx: 8,  ty: 4,  room: 'copy_room' },
-  // Safe deposit
-  { tx: 43, ty: 3,  room: 'safe_dep', fixed: { type: 'cheese' } },
-  { tx: 43, ty: 6,  room: 'safe_dep' },
-  // Vault
-  { tx: 20, ty: 4,  room: 'vault' },
-  { tx: 29, ty: 4,  room: 'vault' },
-];
-
 export const LOOT_TYPES: Record<string, LootTypeDef> = {
   cash:    { name: 'Cash Bundle',  color: '#4ade80', glow: 'rgba(74,222,128,0.2)' },
   gold:    { name: 'Gold Bar',     color: '#fbbf24', glow: 'rgba(251,191,36,0.2)' },
@@ -162,8 +70,9 @@ export const TOOL_TYPES: Record<string, ToolTypeDef> = {
 };
 
 export const LOOT_TABLE_WEIGHTS = {
-  cheese: 35,
-  gear: 20,
-  poop: 30,
-  loot: 15,
+  cheese: 25,
+  tool: 25,
+  gear: 15,
+  poop: 25,
+  loot: 10,
 };

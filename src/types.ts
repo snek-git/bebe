@@ -53,6 +53,39 @@ export interface ContainerDef {
   fixed?: { type: 'cheese' | 'throwable' | 'gear' | 'key'; item?: string };
 }
 
+export interface BabyDef {
+  room: string;
+  dx: number;
+  dy: number;
+  type: BabyType;
+  speed: number;
+  facing: number;
+  pauseTime: number;
+  waypoints: { dx: number; dy: number }[];
+  roamRoom?: string;
+}
+
+export interface KeyPickupDef {
+  room: string;
+  dx: number;
+  dy: number;
+  type: KeyType;
+}
+
+export interface ToolPickupDef {
+  room: string;
+  dx: number;
+  dy: number;
+  type: ToolType;
+}
+
+export interface LootDef {
+  room: string;
+  dx: number;
+  dy: number;
+  type: LootType;
+}
+
 export interface Player {
   x: number;
   y: number;
@@ -181,7 +214,7 @@ export interface Container {
 }
 
 export interface ContainerItem {
-  type: 'cheese' | 'throwable' | 'gear' | 'key' | 'poop' | 'loot';
+  type: 'cheese' | 'throwable' | 'gear' | 'key' | 'poop' | 'loot' | 'tool';
   item?: string;
 }
 

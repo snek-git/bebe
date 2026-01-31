@@ -15,6 +15,7 @@ import {
 import { render } from './render/index';
 import { retryButtonRect, RETRY_APPEAR_TIME, RETRY_PRESS_DURATION, RETRY_FADE_DURATION } from './render/screens';
 import { dist } from './utils';
+import { startMusic } from './audio';
 import type { Game } from './types';
 
 const PEEKABOO_PULSE_DURATION = 2.0;
@@ -39,11 +40,13 @@ initInput(canvas);
 onKeyDown((e) => {
   if (game.state === 'title' && e.code === 'Space') {
     game.state = 'playing';
+    startMusic();
   }
 
   if ((game.state === 'gameover' || game.state === 'win') && e.key.toLowerCase() === 'r') {
     game = initGame();
     game.state = 'playing';
+    startMusic();
   }
 
   if (game.state === 'playing' && e.code === 'Escape') {
@@ -153,6 +156,7 @@ function update(dt: number): void {
       if (game.retryFadeTimer === 0 && game.retryPending) {
         game = initGame();
         game.state = 'playing';
+        startMusic();
       }
     }
     return;
