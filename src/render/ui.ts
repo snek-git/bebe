@@ -95,7 +95,7 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 
   // Controls help
-  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace';
+  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '9px monospace';
   ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
 
   // All loot collected message
