@@ -6,7 +6,7 @@ import {
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
-import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame } from '../sprites';
+import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame, toddlerSpritesReady, getToddlerFrame } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
@@ -324,7 +324,8 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
 
     // Body
     const useStawlerSprites = b.type === 'stawler' && stawlerSpritesReady();
-    if (useSprites || useStawlerSprites) {
+    const useToddlerSprites = b.type === 'toddler' && toddlerSpritesReady();
+    if (useSprites || useStawlerSprites || useToddlerSprites) {
       const moving = b.pauseTimer <= 0 && !stunned;
       let frameIndex: number;
       if (moving) {
@@ -336,7 +337,9 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
           ? (tick === 0 ? 3 : 2)
           : (tick === 0 ? 1 : 0);
       }
-      const img = useStawlerSprites ? getStawlerFrame(frameIndex) : getBabyFrame(frameIndex);
+      const img = useToddlerSprites ? getToddlerFrame(frameIndex)
+        : useStawlerSprites ? getStawlerFrame(frameIndex)
+        : getBabyFrame(frameIndex);
       const half = SPRITE_SIZE / 2;
 
       ctx.save();
@@ -344,13 +347,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.rotate(b.facing + Math.PI / 2);
       if (stunned) ctx.globalAlpha = 0.5;
 
-      // Stawlers use their own sprites — no filter needed
-      if (b.type === 'toddler' && !stunned) {
-        ctx.filter = b.chasing ? 'hue-rotate(-40deg) saturate(1.8)' : 'hue-rotate(-30deg) saturate(1.4)';
-      }
-
       ctx.drawImage(img, -half, -half, SPRITE_SIZE, SPRITE_SIZE);
-      ctx.filter = 'none';
       ctx.restore();
     } else {
       // Fallback procedural rendering — crayon style

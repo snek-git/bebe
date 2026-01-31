@@ -35,3 +35,22 @@ export function stawlerSpritesReady(): boolean {
 export function getStawlerFrame(index: number): HTMLImageElement {
   return stawlerImages[index % STAWLER_FRAMES];
 }
+
+const TODDLER_FRAMES = 4;
+const toddlerImages: HTMLImageElement[] = [];
+let toddlerLoaded = 0;
+
+for (let i = 1; i <= TODDLER_FRAMES; i++) {
+  const img = new Image();
+  img.src = `./sprites/tod${i}.png`;
+  img.onload = () => { toddlerLoaded++; };
+  toddlerImages.push(img);
+}
+
+export function toddlerSpritesReady(): boolean {
+  return toddlerLoaded >= TODDLER_FRAMES;
+}
+
+export function getToddlerFrame(index: number): HTMLImageElement {
+  return toddlerImages[index % TODDLER_FRAMES];
+}
