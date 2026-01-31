@@ -3,11 +3,11 @@ import {
   T, COLS, ROWS, VIEW_W, VIEW_H, PLAYER_SPEED, SPRINT_SPEED, PLAYER_RADIUS,
   BABY_RADIUS, STAMINA_MAX, STAMINA_RECHARGE, SPRINT_DRAIN, CHEESE_COOLDOWN,
   LOOT_TIME, SEARCH_TIME, TOTAL_LOOT,
-  TV_DURATION, DISTRACTION_DURATION,
+  TV_DURATION, TV_RANGE, DISTRACTION_DURATION, DISTRACTION_RANGE,
   SPRINT_NOISE_RANGE, SLAM_NOISE_RANGE,
   DOOR_SLAM_STUN, NOISE_DURATION, SUNGLASSES_DRAIN_MULT,
   VISION_RANGE, VISION_ANGLE, STAWLER_APPROACH_RANGE,
-  LOOT_TYPES, TOOL_TYPES,
+  LOOT_TYPES, TOOL_TYPES, ROOM_DEFS,
 } from '../config';
 import { initGame } from '../state';
 import { roomDef, isSolid, isDoorBlocking, getDoorAt } from '../map';
@@ -23,6 +23,118 @@ import {
 import type { Game, ToolType } from '../types';
 
 const PEEKABOO_PULSE_DURATION = 2.0;
+
+// ---- Shape drawing helpers (Phaser Graphics equivalents of old canvas shapes) ----
+
+function drawToolShapeGfx(g: Phaser.GameObjects.Graphics, px: number, py: number, type: string, s: number, time: number): void {
+  switch (type) {
+    case 'ipad': {
+      const w = s * 1.1, h = s * 1.5;
+      g.fillStyle(0xd4d4d8, 1);
+      g.fillRoundedRect(px - w / 2, py - h / 2, w, h, s * 0.15);
+      g.fillStyle(0x18181b, 1);
+      g.fillRect(px - s * 0.47, py - s * 0.62, s * 0.95, s * 1.25);
+      g.fillStyle(0x3b82f6, 0.6 + Math.sin(time * 3) * 0.2);
+      g.fillRect(px - s * 0.42, py - s * 0.52, s * 0.85, s * 1.05);
+      // App icons grid
+      const gap = s * 0.05, iconS = s * 0.18;
+      const startIx = px - (iconS * 1.5 + gap);
+      const startIy = py - s * 0.52 + gap * 2;
+      g.fillStyle(0xeff6ff, 0.8);
+      for (let row = 0; row < 2; row++)
+        for (let col = 0; col < 3; col++)
+          g.fillRect(startIx + col * (iconS + gap), startIy + row * (iconS + gap), iconS, iconS);
+      // Home button
+      g.fillStyle(0xa1a1aa, 1);
+      g.fillCircle(px, py + h / 2 - s * 0.12, s * 0.05);
+      break;
+    }
+    case 'remote': {
+      g.fillStyle(0x3f3f46, 1);
+      g.fillRect(px - s * 0.25, py - s * 0.6, s * 0.5, s * 1.2);
+      g.lineStyle(1.5, 0x52525b, 1);
+      g.strokeRect(px - s * 0.25, py - s * 0.6, s * 0.5, s * 1.2);
+      g.fillStyle(0xef4444, 1);
+      g.fillCircle(px, py - s * 0.3, s * 0.1);
+      g.fillStyle(0x71717a, 1);
+      g.fillRect(px - s * 0.12, py - s * 0.05, s * 0.24, s * 0.12);
+      g.fillRect(px - s * 0.12, py + s * 0.15, s * 0.24, s * 0.12);
+      break;
+    }
+    case 'pacifier': {
+      g.fillStyle(0xf59e0b, 1);
+      g.fillCircle(px, py, s * 0.4);
+      g.lineStyle(s * 0.15, 0xf59e0b, 1);
+      g.beginPath();
+      const arcR = s * 0.55;
+      g.arc(px, py - s * 0.15, arcR, -Math.PI * 0.8, -Math.PI * 0.2);
+      g.strokePath();
+      break;
+    }
+  }
+}
+
+function drawLootShapeGfx(g: Phaser.GameObjects.Graphics, px: number, py: number, type: string, s: number): void {
+  switch (type) {
+    case 'cash':
+      g.fillStyle(0x4ade80, 1);
+      g.fillRect(px - s * 0.6, py - s * 0.4, s * 1.2, s * 0.8);
+      g.lineStyle(1.5, 0x22c55e, 1);
+      g.strokeRect(px - s * 0.6, py - s * 0.4, s * 1.2, s * 0.8);
+      break;
+    case 'gold':
+      g.fillStyle(0xfbbf24, 1);
+      g.fillRect(px - s * 0.7, py - s * 0.3, s * 1.4, s * 0.6);
+      g.lineStyle(1.5, 0xd97706, 1);
+      g.strokeRect(px - s * 0.7, py - s * 0.3, s * 1.4, s * 0.6);
+      g.fillStyle(0x92400e, 1);
+      g.fillRect(px - s * 0.5, py - s * 0.1, s, s * 0.2);
+      break;
+    case 'diamond':
+      g.fillStyle(0x60a5fa, 1);
+      g.fillTriangle(px, py - s * 0.7, px + s * 0.5, py, px - s * 0.5, py);
+      g.fillTriangle(px, py + s * 0.7, px + s * 0.5, py, px - s * 0.5, py);
+      g.lineStyle(2, 0x3b82f6, 0.75);
+      g.strokeTriangle(px, py - s * 0.7, px + s * 0.5, py, px - s * 0.5, py);
+      g.strokeTriangle(px, py + s * 0.7, px + s * 0.5, py, px - s * 0.5, py);
+      break;
+    case 'key':
+      g.fillStyle(0xfacc15, 1);
+      g.fillCircle(px - s * 0.3, py, s * 0.35);
+      g.fillRect(px, py - s * 0.12, s * 0.7, s * 0.24);
+      g.fillRect(px + s * 0.5, py, s * 0.2, s * 0.3);
+      g.fillStyle(0x1e1e2e, 1);
+      g.fillCircle(px - s * 0.3, py, s * 0.15);
+      break;
+    case 'docs':
+      g.fillStyle(0xe5e7eb, 1);
+      g.fillRect(px - s * 0.4, py - s * 0.55, s * 0.8, s * 1.1);
+      g.lineStyle(1.5, 0x9ca3af, 1);
+      g.strokeRect(px - s * 0.4, py - s * 0.55, s * 0.8, s * 1.1);
+      g.lineStyle(1, 0x9ca3af, 1);
+      for (let i = 0; i < 3; i++) {
+        g.beginPath();
+        g.moveTo(px - s * 0.25, py - s * 0.3 + i * s * 0.25);
+        g.lineTo(px + s * 0.25, py - s * 0.3 + i * s * 0.25);
+        g.strokePath();
+      }
+      break;
+    case 'jewels':
+      g.fillStyle(0xc084fc, 1);
+      g.fillRect(px - s * 0.45, py - s * 0.35, s * 0.9, s * 0.7);
+      g.lineStyle(1.5, 0xa855f7, 1);
+      g.strokeRect(px - s * 0.45, py - s * 0.35, s * 0.9, s * 0.7);
+      g.fillStyle(0xe9d5ff, 1);
+      g.fillCircle(px, py, s * 0.15);
+      break;
+    case 'coin':
+      g.fillStyle(0xfb923c, 1);
+      g.fillCircle(px, py, s * 0.45);
+      g.lineStyle(2, 0xc2410c, 1);
+      g.strokeCircle(px, py, s * 0.45);
+      break;
+  }
+}
 
 export class GameScene extends Phaser.Scene {
   game_!: Game;
@@ -42,6 +154,7 @@ export class GameScene extends Phaser.Scene {
 
   // Graphics layers
   worldGfx!: Phaser.GameObjects.Graphics;
+  playerDetailGfx!: Phaser.GameObjects.Graphics;
   visionGfx!: Phaser.GameObjects.Graphics;
   uiGfx!: Phaser.GameObjects.Graphics;
   overlayGfx!: Phaser.GameObjects.Graphics;
@@ -102,14 +215,17 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0e0e1a');
 
     // Graphics layers for custom rendering (doors, entities, vision, UI)
-    this.worldGfx = this.add.graphics().setDepth(10);
-    this.visionGfx = this.add.graphics().setDepth(5);
+    this.worldGfx = this.add.graphics();
+    this.visionGfx = this.add.graphics();
 
-    // Player - simple circle with physics (below worldGfx so eyes draw on top)
+    // Player - simple circle with physics
     this.playerSprite = this.add.arc(
       this.game_.player.x, this.game_.player.y,
       PLAYER_RADIUS, 0, 360, false, 0x4ade80
-    ).setDepth(9);
+    );
+
+    // Player detail layer (eyes, hiding ring) — added after playerSprite so it draws on top
+    this.playerDetailGfx = this.add.graphics();
     this.physics.add.existing(this.playerSprite);
     const playerBody = this.playerSprite.body as Phaser.Physics.Arcade.Body;
     playerBody.setCircle(PLAYER_RADIUS);
@@ -124,6 +240,15 @@ export class GameScene extends Phaser.Scene {
       img.setDisplaySize(T * 2, T * 2);
       if (b.type !== 'stawler') img.setTint(tints[b.type] || 0xffffff);
       this.babyImages.push(img);
+    }
+
+    // Room labels (world-space, dim)
+    for (const r of ROOM_DEFS) {
+      const cx = (r.x + r.w / 2) * T;
+      const cy = (r.y + 0.8) * T;
+      this.add.text(cx, cy, r.name, {
+        fontFamily: 'monospace', fontSize: '8px', color: '#6b7280',
+      }).setOrigin(0.5, 0.5).setAlpha(0.35).setDepth(1);
     }
 
     // Camera follows player
@@ -276,6 +401,7 @@ export class GameScene extends Phaser.Scene {
 
     // Clear all graphics
     this.worldGfx.clear();
+    this.playerDetailGfx.clear();
     this.visionGfx.clear();
     this.uiGfx.clear();
     this.overlayGfx.clear();
@@ -467,12 +593,19 @@ export class GameScene extends Phaser.Scene {
           p.staminaExhausted = true;
         }
 
-        // Sprint noise
-        game.noiseEvents.push({
-          x: p.x, y: p.y,
-          radius: SPRINT_NOISE_RANGE,
-          timer: NOISE_DURATION * 0.3,
-        });
+        // Sprint noise (reuse existing to avoid spam)
+        const existing = game.noiseEvents.find(n => n.radius === SPRINT_NOISE_RANGE);
+        if (existing) {
+          existing.x = p.x;
+          existing.y = p.y;
+          existing.timer = NOISE_DURATION * 0.3;
+        } else {
+          game.noiseEvents.push({
+            x: p.x, y: p.y,
+            radius: SPRINT_NOISE_RANGE,
+            timer: NOISE_DURATION * 0.3,
+          });
+        }
       }
     }
 
@@ -657,6 +790,7 @@ export class GameScene extends Phaser.Scene {
 
     // Clear graphics layers
     this.worldGfx.clear();
+    this.playerDetailGfx.clear();
     this.visionGfx.clear();
     this.uiGfx.clear();
     this.overlayGfx.clear();
@@ -709,11 +843,14 @@ export class GameScene extends Phaser.Scene {
     this.worldGfx.fillRect(ex, ey, T, T);
     this.worldGfx.lineStyle(2, allLoot ? 0x4ade80 : 0x6b7280, allLoot ? pulse : 1);
     this.worldGfx.strokeRect(ex + 2, ey + 2, T - 4, T - 4);
+    // "EXIT" proximity label
+    if (allLoot && dist(game.player, { x: ex + T / 2, y: ey + T / 2 }) < T * 3) {
+      this.proximityText.setPosition(ex + T / 2, ey - 8).setText('EXIT').setColor('#4ade80').setVisible(true);
+    }
   }
 
   renderRoomLabels(): void {
-    // Room labels are static text, skip for now to keep perf
-    // Will add as Phaser Text objects in polish phase
+    // Room labels are created as static text objects in create()
   }
 
   renderDoors(): void {
@@ -746,6 +883,13 @@ export class GameScene extends Phaser.Scene {
         this.worldGfx.fillRect(px, py, T, T);
         this.worldGfx.lineStyle(2, 0x6b6b8a, 1);
         this.worldGfx.strokeRect(px + 1, py + 1, T - 2, T - 2);
+        // Red X lock indicator
+        const cx = px + T / 2, cy = py + T / 2;
+        this.worldGfx.lineStyle(2, 0xef4444, 0.8);
+        this.worldGfx.beginPath();
+        this.worldGfx.moveTo(cx - 5, cy - 5); this.worldGfx.lineTo(cx + 5, cy + 5);
+        this.worldGfx.moveTo(cx + 5, cy - 5); this.worldGfx.lineTo(cx - 5, cy + 5);
+        this.worldGfx.strokePath();
       }
     }
   }
@@ -754,18 +898,35 @@ export class GameScene extends Phaser.Scene {
     const game = this.game_;
     for (const tv of game.tvs) {
       const px = tv.x, py = tv.y;
+      // TV body
       this.worldGfx.fillStyle(0x1a1a2e, 1);
       this.worldGfx.fillRect(px - 10, py - 8, 20, 16);
-      this.worldGfx.lineStyle(1.5, 0x374151, 1);
+      this.worldGfx.lineStyle(2, 0x374151, 1);
       this.worldGfx.strokeRect(px - 10, py - 8, 20, 16);
       if (tv.active) {
         const pulse = Math.sin(game.time * 8) * 0.2 + 0.8;
         this.worldGfx.fillStyle(0x4ade80, pulse * 0.8);
         this.worldGfx.fillRect(px - 8, py - 6, 16, 12);
+        // Colored bars
+        const colors = [0xef4444, 0xfbbf24, 0x4ade80, 0x60a5fa];
+        for (let i = 0; i < 4; i++) {
+          this.worldGfx.fillStyle(colors[i], 1);
+          this.worldGfx.fillRect(px - 8 + i * 4, py - 6, 4, 12);
+        }
+        // Range circle
+        this.worldGfx.lineStyle(1, 0x4ade80, Math.sin(game.time * 4) * 0.05 + 0.08);
+        this.worldGfx.strokeCircle(px, py, TV_RANGE);
+        // Timer arc
+        const pct = tv.timer / TV_DURATION;
+        this.worldGfx.lineStyle(2, 0x4ade80, 0.6);
+        this.worldGfx.beginPath();
+        this.worldGfx.arc(px, py, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+        this.worldGfx.strokePath();
       } else {
         this.worldGfx.fillStyle(0x111111, 1);
         this.worldGfx.fillRect(px - 8, py - 6, 16, 12);
       }
+      // TV stand
       this.worldGfx.fillStyle(0x374151, 1);
       this.worldGfx.fillRect(px - 2, py + 8, 4, 3);
     }
@@ -851,10 +1012,7 @@ export class GameScene extends Phaser.Scene {
       const px = tp.x, py = tp.y + bob;
       this.worldGfx.fillStyle(0xa855f7, 0.15);
       this.worldGfx.fillCircle(px, py, 13);
-      // Simple indicator per tool type
-      const colors: Record<string, number> = { ipad: 0xa1a1aa, remote: 0x71717a, pacifier: 0xf59e0b };
-      this.worldGfx.fillStyle(colors[tp.type] || 0xa1a1aa, 1);
-      this.worldGfx.fillRect(px - 5, py - 5, 10, 10);
+      drawToolShapeGfx(this.worldGfx, px, py, tp.type, 10, game.time);
     }
   }
 
@@ -863,8 +1021,26 @@ export class GameScene extends Phaser.Scene {
     for (const d of game.distractions) {
       const px = d.x, py = d.y;
       const pulse = Math.sin(game.time * 6) * 0.2 + 0.5;
+      // Range circle
+      this.worldGfx.lineStyle(1.5, 0xa855f7, pulse * 0.08);
+      this.worldGfx.strokeCircle(px, py, DISTRACTION_RANGE);
+      // Center glow
       this.worldGfx.fillStyle(0xa855f7, pulse * 0.3);
       this.worldGfx.fillCircle(px, py, 18);
+      // Tool shape
+      drawToolShapeGfx(this.worldGfx, px, py, d.type, 10, game.time);
+      // Timer arc
+      const pct = d.timer / DISTRACTION_DURATION;
+      this.worldGfx.lineStyle(2, 0xa855f7, 0.7);
+      this.worldGfx.beginPath();
+      this.worldGfx.arc(px, py, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      this.worldGfx.strokePath();
+      // Floating ~ marks
+      for (let i = 0; i < 3; i++) {
+        const a = game.time * 3 + i * 2.094, r = 20 + Math.sin(game.time * 4 + i) * 5;
+        this.worldGfx.fillStyle(0xc4b5fd, pulse);
+        this.worldGfx.fillCircle(px + Math.cos(a) * r, py + Math.sin(a) * r, 1.5);
+      }
     }
   }
 
@@ -878,10 +1054,7 @@ export class GameScene extends Phaser.Scene {
       // Glow
       this.worldGfx.fillStyle(parseInt(lt.color.slice(1), 16), 0.25);
       this.worldGfx.fillCircle(px, py, 16);
-      // Diamond shape
-      this.worldGfx.fillStyle(parseInt(lt.color.slice(1), 16), 1);
-      this.worldGfx.fillTriangle(px, py - 8, px + 6, py, px - 6, py);
-      this.worldGfx.fillTriangle(px, py + 8, px + 6, py, px - 6, py);
+      drawLootShapeGfx(this.worldGfx, px, py, l.type, 10);
     }
   }
 
@@ -1067,6 +1240,7 @@ export class GameScene extends Phaser.Scene {
     const p = game.player;
     const bob = Math.sin(game.time * 8) * ((p.vx || p.vy) ? 1.5 : 0);
     const px = p.x, py = p.y + bob;
+    const pg = this.playerDetailGfx;
 
     // Update arc position (the physics circle)
     this.playerSprite.setPosition(p.x, p.y);
@@ -1078,20 +1252,20 @@ export class GameScene extends Phaser.Scene {
       this.playerSprite.setAlpha(flicker);
 
       // Peekaboo eyes (yellow arcs)
-      this.worldGfx.lineStyle(3, 0xfcd34d, flicker);
-      this.worldGfx.beginPath();
-      this.worldGfx.arc(px, py, PLAYER_RADIUS * 0.5, -0.8, 0.8);
-      this.worldGfx.strokePath();
-      this.worldGfx.beginPath();
-      this.worldGfx.arc(px, py, PLAYER_RADIUS * 0.5, Math.PI - 0.8, Math.PI + 0.8);
-      this.worldGfx.strokePath();
+      pg.lineStyle(3, 0xfcd34d, flicker);
+      pg.beginPath();
+      pg.arc(px, py, PLAYER_RADIUS * 0.5, -0.8, 0.8);
+      pg.strokePath();
+      pg.beginPath();
+      pg.arc(px, py, PLAYER_RADIUS * 0.5, Math.PI - 0.8, Math.PI + 0.8);
+      pg.strokePath();
 
       // Hiding ring
       const ringSize = stPct < 0.3
         ? (PLAYER_RADIUS + 3 + Math.sin(game.time * 8) * 3)
         : (PLAYER_RADIUS + 6 + Math.sin(game.time * 4) * 2);
-      this.worldGfx.lineStyle(1.5, stPct < 0.3 ? 0xef4444 : 0x4ade80, stPct < 0.3 ? 0.4 : 0.3);
-      this.worldGfx.strokeCircle(px, py, ringSize);
+      pg.lineStyle(1.5, stPct < 0.3 ? 0xef4444 : 0x4ade80, stPct < 0.3 ? 0.4 : 0.3);
+      pg.strokeCircle(px, py, ringSize);
     } else {
       this.playerSprite.setFillStyle(p.sprinting ? 0x86efac : 0x4ade80);
       this.playerSprite.setAlpha(1);
@@ -1102,12 +1276,12 @@ export class GameScene extends Phaser.Scene {
       const e1y = py + Math.sin(p.facing - 0.4) * eo;
       const e2x = px + Math.cos(p.facing + 0.4) * eo;
       const e2y = py + Math.sin(p.facing + 0.4) * eo;
-      this.worldGfx.fillStyle(0xffffff, 1);
-      this.worldGfx.fillCircle(e1x, e1y, 2.5);
-      this.worldGfx.fillCircle(e2x, e2y, 2.5);
-      this.worldGfx.fillStyle(0x1e1e2e, 1);
-      this.worldGfx.fillCircle(e1x + Math.cos(p.facing) * 0.8, e1y + Math.sin(p.facing) * 0.8, 1.2);
-      this.worldGfx.fillCircle(e2x + Math.cos(p.facing) * 0.8, e2y + Math.sin(p.facing) * 0.8, 1.2);
+      pg.fillStyle(0xffffff, 1);
+      pg.fillCircle(e1x, e1y, 2.5);
+      pg.fillCircle(e2x, e2y, 2.5);
+      pg.fillStyle(0x1e1e2e, 1);
+      pg.fillCircle(e1x + Math.cos(p.facing) * 0.8, e1y + Math.sin(p.facing) * 0.8, 1.2);
+      pg.fillCircle(e2x + Math.cos(p.facing) * 0.8, e2y + Math.sin(p.facing) * 0.8, 1.2);
     }
 
     // Loot progress bar
@@ -1289,32 +1463,31 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Hotbar
-    const SLOT_SIZE = 34;
-    const SLOT_GAP = 3;
+    // Hotbar (matching main's 40px slots)
+    const SLOT_SIZE = 40;
+    const SLOT_GAP = 4;
     const hasTools = p.tools.length > 0;
     const slotCount = 1 + (hasTools ? 1 : 0);
     const barW2 = slotCount * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP + (hasTools ? 8 : 0);
     const barX = VIEW_W / 2 - barW2 / 2;
-    const barY = VIEW_H - SLOT_SIZE - 14;
+    const barY = VIEW_H - SLOT_SIZE - 50;
 
     g.fillStyle(0x000000, 0.6);
     g.fillRect(barX - 4, barY - 4, barW2 + 8, SLOT_SIZE + 8);
 
     // Cheese slot
-    g.fillStyle(0x1e1e2e, 0.8);
+    g.fillStyle(0x14395e, 0.8);
     g.fillRect(barX, barY, SLOT_SIZE, SLOT_SIZE);
-    g.lineStyle(1, p.cheese > 0 ? 0xfbbf24 : 0x374151, 1);
-    g.strokeRect(barX, barY, SLOT_SIZE, SLOT_SIZE);
+    g.lineStyle(2, p.cheese > 0 ? 0xfbbf24 : 0x374151, 1);
+    g.strokeRect(barX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
 
     if (p.cheese > 0) {
-      // American cheese slice (square, matching main)
+      // American cheese slice (square)
       const cx = barX + SLOT_SIZE / 2, cy = barY + SLOT_SIZE / 2;
-      const sz = 14;
+      const sz = 16;
       g.fillStyle(0xfbbf24, 1);
       g.fillRect(cx - sz / 2, cy - sz / 2, sz, sz);
-      // Highlight
-      g.fillStyle(0xffffff, 0.35);
+      g.fillStyle(0xffffff, 0.4);
       g.fillEllipse(cx - sz * 0.15, cy - sz * 0.15, sz * 0.2, sz * 0.15);
     }
 
@@ -1328,10 +1501,18 @@ export class GameScene extends Phaser.Scene {
     // Tool slot
     if (hasTools) {
       const toolX = barX + SLOT_SIZE + SLOT_GAP + 5;
-      g.fillStyle(0x1e1e2e, 0.8);
+      // Divider line
+      g.lineStyle(2, 0x6b7280, 0.5);
+      g.beginPath();
+      g.moveTo(toolX - 5, barY + 2); g.lineTo(toolX - 5, barY + SLOT_SIZE - 2);
+      g.strokePath();
+      // Slot background
+      g.fillStyle(0x14395e, 0.8);
       g.fillRect(toolX, barY, SLOT_SIZE, SLOT_SIZE);
-      g.lineStyle(1, 0xc084fc, 1);
-      g.strokeRect(toolX, barY, SLOT_SIZE, SLOT_SIZE);
+      g.lineStyle(2, 0xfbbf24, 1);
+      g.strokeRect(toolX + 0.5, barY + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
+      // Draw tool icon
+      drawToolShapeGfx(g, toolX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 4, p.tools[0], 12, game.time);
     }
 
     // Crosshair
@@ -1375,17 +1556,13 @@ export class GameScene extends Phaser.Scene {
     // Status text is now handled by stamina label
     this.statusText.setVisible(false);
 
-    // Cheese count on hotbar
-    const SLOT_SIZE2 = 34;
-    const hasTools2 = p.tools.length > 0;
-    const slotCount2 = 1 + (hasTools2 ? 1 : 0);
-    const barW3 = slotCount2 * (SLOT_SIZE2 + 3) - 3 + (hasTools2 ? 8 : 0);
-    const hotbarX = VIEW_W / 2 - barW3 / 2;
-    const hotbarY = VIEW_H - SLOT_SIZE2 - 14;
+    // Cheese count on hotbar (uses same barX/barY as above)
     if (p.cheese > 0) {
-      this.cheeseCountText.setText('' + p.cheese).setPosition(hotbarX + SLOT_SIZE2 / 2, hotbarY + SLOT_SIZE2 - 5).setVisible(true);
+      this.cheeseCountText.setText('' + p.cheese).setColor('#ffffff')
+        .setPosition(barX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 12).setVisible(true);
     } else {
-      this.cheeseCountText.setText('--').setColor('#4b5563').setPosition(hotbarX + SLOT_SIZE2 / 2, hotbarY + SLOT_SIZE2 / 2).setVisible(true);
+      this.cheeseCountText.setText('--').setColor('#4b5563')
+        .setPosition(barX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2).setVisible(true);
     }
 
     // Loot message
@@ -1435,8 +1612,16 @@ export class GameScene extends Phaser.Scene {
       g.fillRect(mmX + (b.x / T) * mmS - 1, mmY + (b.y / T) * mmS - 1, 2, 2);
     }
 
+    // Active TV dots
+    for (const tv of game.tvs) {
+      if (tv.active) {
+        g.fillStyle(0x4ade80, 1);
+        g.fillRect(mmX + (tv.x / T) * mmS - 1, mmY + (tv.y / T) * mmS - 1, 2, 2);
+      }
+    }
+
     // Camera viewport
-    g.lineStyle(1, 0xffffff, 0.3);
+    g.lineStyle(1, 0x48818c, 0.45);
     g.strokeRect(
       mmX + (game.camera.x / T) * mmS,
       mmY + (game.camera.y / T) * mmS,
@@ -1444,22 +1629,36 @@ export class GameScene extends Phaser.Scene {
       (VIEW_H / T) * mmS
     );
 
-    // Cloud fog overlay
+    // Cloud fog overlay (with scale animation on dissolve)
     for (const cloud of game.minimapClouds) {
       if (cloud.dissolve >= 1) continue;
-      const alpha = 1 - cloud.dissolve;
+      const d = cloud.dissolve;
+      let scale: number, alpha: number;
+      if (d < 0.15) {
+        scale = 1.0 + (d / 0.15) * 0.2;
+        alpha = 1;
+      } else {
+        const t2 = (d - 0.15) / 0.85;
+        scale = 1.2 * (1 - t2);
+        alpha = 1 - t2;
+      }
+      if (alpha <= 0) continue;
       const cx = mmX + cloud.tx * mmS;
       const cy = mmY + cloud.ty * mmS;
-      const r = cloud.r;
+      const r = cloud.r * scale;
       const s = cloud.seed;
 
-      // Multi-layer puffs for natural cloud shape
-      g.fillStyle(0xf8fafc, alpha * 0.9);
+      // Multi-layer puffs
+      g.fillStyle(0xb4bec8, alpha * 0.7);
       g.fillCircle(cx, cy, r);
-      g.fillStyle(0xf1f5f9, alpha * 0.7);
-      g.fillCircle(cx + ((s % 7) - 3), cy + ((s % 5) - 2), r * 0.7);
-      g.fillStyle(0xe2e8f0, alpha * 0.5);
-      g.fillCircle(cx - ((s % 6) - 3), cy + ((s % 4) - 2), r * 0.5);
+      g.fillStyle(0xa5afb9, alpha * 0.55);
+      g.fillCircle(cx + ((s % 7) - 3) * scale, cy + ((s % 5) - 2) * scale, r * 0.7);
+      g.fillStyle(0x96a0ac, alpha * 0.4);
+      g.fillCircle(cx - ((s % 6) - 3) * scale, cy + ((s % 4) - 2) * scale, r * 0.5);
+      // Additional puffs for coverage
+      g.fillStyle(0xaab4be, alpha * 0.5);
+      g.fillCircle(cx + ((s % 9) - 4) * scale, cy + ((s % 7) - 3) * scale, r * 0.6);
+      g.fillCircle(cx - ((s % 5) - 2) * scale, cy - ((s % 6) - 3) * scale, r * 0.55);
     }
   }
 
@@ -1553,6 +1752,9 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(ix, iy, bgRadius);
       g.lineStyle(hovered ? 2.5 : 1, hovered ? 0xc084fc : 0x6b7280, hovered ? 1 : 0.5);
       g.strokeCircle(ix, iy, bgRadius);
+
+      // Tool icon inside circle
+      drawToolShapeGfx(g, ix, iy, tools[i], hovered ? 14 : 11, game.time);
 
       // Active indicator
       if (i === 0) {

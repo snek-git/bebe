@@ -145,11 +145,12 @@ export function updateBabies(game: Game, dt: number): void {
       continue;
     }
 
-    // Check for noise reactions first
+    // Check for noise reactions first (fast snap toward sound)
     const noise = nearestNoise(game, b);
     if (noise && !b.distracted) {
       const dx = noise.x - b.x, dy = noise.y - b.y;
-      b.facing = Math.atan2(dy, dx);
+      const noiseTurn = BABY_TURN_RATE * 4 * dt;
+      b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), noiseTurn);
     }
 
     const attr = nearestAttraction(game, b);
