@@ -15,9 +15,7 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const detPct = det / 100;
   const bw = 160, bh = 12, bx = VIEW_W / 2 - bw / 2, by = 10;
 
-  // Bar background pulses when detection is active
-  const barPulse = det > 0 ? Math.sin(time * (4 + detPct * 12)) * 0.15 + 0.85 : 1;
-  ctx.fillStyle = det > 60 ? `rgba(60,0,0,${0.5 + Math.sin(time * 8) * 0.15})` : 'rgba(0,0,0,0.5)';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
   ctx.fillStyle = '#374151'; ctx.fillRect(bx, by, bw, bh);
 
@@ -25,22 +23,17 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
     grad.addColorStop(0, '#fbbf24'); grad.addColorStop(1, '#ef4444');
     ctx.fillStyle = grad;
-    ctx.globalAlpha = barPulse;
     ctx.fillRect(bx, by, bw * detPct, bh);
-    ctx.globalAlpha = 1;
 
-    // Bright leading edge
+    // Subtle bright leading edge
     const edgeX = bx + bw * detPct;
-    ctx.fillStyle = `rgba(255,255,255,${0.4 + Math.sin(time * 10) * 0.3})`;
-    ctx.fillRect(edgeX - 2, by, 2, bh);
+    ctx.fillStyle = `rgba(255,255,255,${0.25 + Math.sin(time * 6) * 0.15})`;
+    ctx.fillRect(edgeX - 1, by, 1, bh);
   }
 
-  // Border glows based on danger
+  // Border — subtle color shift at high detection
   if (det > 70) {
-    ctx.strokeStyle = `rgba(239,68,68,${0.6 + Math.sin(time * 10) * 0.4})`;
-    ctx.lineWidth = 2;
-  } else if (det > 30) {
-    ctx.strokeStyle = `rgba(251,191,36,${0.5 + Math.sin(time * 6) * 0.3})`;
+    ctx.strokeStyle = 'rgba(239,68,68,0.7)';
     ctx.lineWidth = 1.5;
   } else {
     ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1;
@@ -48,22 +41,13 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.strokeRect(bx, by, bw, bh);
 
   // Label + percentage
-  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  if (det > 75) {
-    ctx.fillStyle = `rgba(239,68,68,${0.7 + Math.sin(time * 12) * 0.3})`;
-    ctx.fillText('!! BUSTED SOON !!', VIEW_W / 2, by + bh + 12);
-  } else if (det > 50) {
-    ctx.fillStyle = '#ef4444';
-    ctx.fillText('DETECTED! ' + Math.round(det) + '%', VIEW_W / 2, by + bh + 12);
-  } else if (det > 20) {
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText('ALERT ' + Math.round(det) + '%', VIEW_W / 2, by + bh + 12);
-  } else if (det > 0) {
-    ctx.fillStyle = '#e5e7eb';
-    ctx.fillText('DETECTION ' + Math.round(det) + '%', VIEW_W / 2, by + bh + 12);
+  ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  if (det > 0) {
+    ctx.fillStyle = det > 60 ? '#ef4444' : det > 30 ? '#fbbf24' : '#e5e7eb';
+    ctx.fillText(Math.round(det) + '%', VIEW_W / 2, by + bh + 11);
   } else {
-    ctx.fillStyle = '#6b7280'; ctx.font = '9px monospace';
-    ctx.fillText('DETECTION', VIEW_W / 2, by + bh + 12);
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('DETECTION', VIEW_W / 2, by + bh + 11);
   }
 
   // === HOTBAR (bottom center) ===
@@ -440,53 +424,39 @@ export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void
 
 export function renderDetectionOverlay(ctx: CanvasRenderingContext2D, game: Game): void {
   const det = game.detection;
-  if (det <= 5) return;
+  if (det <= 20) return;
 
-  const time = game.time;
   const detPct = det / 100;
 
-  // Heartbeat pulse — gets faster as detection rises
-  const heartRate = 2 + detPct * 10; // 2 Hz at low, 12 Hz near bust
-  const heartbeat = Math.pow(Math.max(0, Math.sin(time * heartRate * Math.PI)), 3);
-  const baseAlpha = detPct * 0.3;
-  const pulseAlpha = heartbeat * detPct * 0.25;
-
-  // Red vignette edges (gradient from edges inward)
-  const vignetteStrength = baseAlpha + pulseAlpha;
-  const edgeSize = 0.3 + detPct * 0.2; // vignette gets thicker
+  // Simple red vignette that grows with detection
+  const alpha = (detPct - 0.2) * 0.2; // max ~0.16 at 100%
+  const edgeSize = 0.15 + detPct * 0.1;
 
   // Top edge
   const topGrad = ctx.createLinearGradient(0, 0, 0, VIEW_H * edgeSize);
-  topGrad.addColorStop(0, `rgba(239,68,68,${vignetteStrength})`);
+  topGrad.addColorStop(0, `rgba(239,68,68,${alpha})`);
   topGrad.addColorStop(1, 'rgba(239,68,68,0)');
   ctx.fillStyle = topGrad;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H * edgeSize);
 
   // Bottom edge
   const botGrad = ctx.createLinearGradient(0, VIEW_H, 0, VIEW_H * (1 - edgeSize));
-  botGrad.addColorStop(0, `rgba(239,68,68,${vignetteStrength})`);
+  botGrad.addColorStop(0, `rgba(239,68,68,${alpha})`);
   botGrad.addColorStop(1, 'rgba(239,68,68,0)');
   ctx.fillStyle = botGrad;
   ctx.fillRect(0, VIEW_H * (1 - edgeSize), VIEW_W, VIEW_H * edgeSize);
 
   // Left edge
   const leftGrad = ctx.createLinearGradient(0, 0, VIEW_W * edgeSize, 0);
-  leftGrad.addColorStop(0, `rgba(239,68,68,${vignetteStrength})`);
+  leftGrad.addColorStop(0, `rgba(239,68,68,${alpha})`);
   leftGrad.addColorStop(1, 'rgba(239,68,68,0)');
   ctx.fillStyle = leftGrad;
   ctx.fillRect(0, 0, VIEW_W * edgeSize, VIEW_H);
 
   // Right edge
   const rightGrad = ctx.createLinearGradient(VIEW_W, 0, VIEW_W * (1 - edgeSize), 0);
-  rightGrad.addColorStop(0, `rgba(239,68,68,${vignetteStrength})`);
+  rightGrad.addColorStop(0, `rgba(239,68,68,${alpha})`);
   rightGrad.addColorStop(1, 'rgba(239,68,68,0)');
   ctx.fillStyle = rightGrad;
   ctx.fillRect(VIEW_W * (1 - edgeSize), 0, VIEW_W * edgeSize, VIEW_H);
-
-  // Full screen flash at high detection
-  if (det > 70) {
-    const flash = heartbeat * (detPct - 0.7) * 0.6;
-    ctx.fillStyle = `rgba(239,68,68,${flash})`;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  }
 }
