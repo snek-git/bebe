@@ -223,12 +223,17 @@ export function updateBabies(game: Game, dt: number): void {
 
       // Chase mode
       if (b.chasing) {
+        // Track player position while chasing
+        b.lastSeenX = p.x;
+        b.lastSeenY = p.y;
+
         // Lose player when detection drops to 0 AND can't directly see
         if (game.detection <= 0 && !canBabySee(game, b)) {
           b.chasing = false;
-          b.path = [];
+          // Path to last seen position instead of giving up
+          b.path = findPath(game.grid, b.x, b.y, b.lastSeenX, b.lastSeenY);
           b.pathIndex = 0;
-          b.pathTimer = 0;
+          b.pathTimer = TODDLER_ROAM_INTERVAL;
           b.pauseTimer = 0;
         } else {
           if (b.pathTimer! <= 0) {
@@ -256,6 +261,14 @@ export function updateBabies(game: Game, dt: number): void {
 
       // === ROAMING ===
 
+      // Clear last-seen when we've arrived at that spot
+      if (b.lastSeenX != null && b.lastSeenY != null) {
+        if (dist(b, { x: b.lastSeenX, y: b.lastSeenY }) < 24) {
+          b.lastSeenX = undefined;
+          b.lastSeenY = undefined;
+        }
+      }
+
       // Room tracking
       const curRoom = getCurrentRoom(b.x, b.y);
       if (curRoom && curRoom !== b.roamRoom) {
@@ -280,8 +293,10 @@ export function updateBabies(game: Game, dt: number): void {
         b.roamQueue = [...shuffle(fresh), ...shuffle(stale)];
       }
 
+      const needsNewPath = b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length;
       const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
-      if (dwellExpired || b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
+      const investigating = b.lastSeenX != null && b.lastSeenY != null;
+      if (!investigating && (dwellExpired || needsNewPath)) {
         // Try rooms until we get a valid path
         let found = false;
         for (let attempts = 0; attempts < 5 && b.roamQueue!.length > 0; attempts++) {

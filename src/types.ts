@@ -101,6 +101,8 @@ export interface Baby {
   roomDwell?: number;
   roamQueue?: string[];
   recentRooms?: string[];
+  lastSeenX?: number;
+  lastSeenY?: number;
   doorPushTimer?: number;
   doorPushTarget?: Door;
 }
