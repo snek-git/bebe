@@ -206,3 +206,33 @@ export function drawLootShape(ctx: CanvasRenderingContext2D, px: number, py: num
     }
   }
 }
+
+export function drawCheeseShape(ctx: CanvasRenderingContext2D, px: number, py: number, s: number): void {
+  // Triangular wedge
+  ctx.fillStyle = '#fde047';
+  ctx.beginPath();
+  // Isosceles(-ish) triangle pointing up-left
+  const half = s * 0.8;
+  ctx.moveTo(px - half, py - half * 0.5);
+  ctx.lineTo(px + half, py - half * 0.5);
+  ctx.lineTo(px, py + half);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3D side (thickness)
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath();
+  ctx.moveTo(px, py + half);
+  ctx.lineTo(px + half, py - half * 0.5);
+  ctx.lineTo(px + half, py - half * 0.5 + s * 0.3);
+  ctx.lineTo(px, py + half + s * 0.3);
+  ctx.closePath();
+  ctx.fill();
+
+  // Holes on top face
+  ctx.fillStyle = '#eab308';
+  const size = s * 0.8;
+  ctx.beginPath(); ctx.arc(px, py, size * 0.15, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px - size * 0.3, py - size * 0.2, size * 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px + size * 0.2, py - size * 0.3, size * 0.12, 0, Math.PI * 2); ctx.fill();
+}

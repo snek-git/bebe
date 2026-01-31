@@ -3,7 +3,7 @@ import {
   TOOL_TYPES,
 } from '../config';
 import { mouseScreen } from '../input';
-import { drawToolShape } from './shapes';
+import { drawToolShape, drawCheeseShape } from './shapes';
 import { SK, sketchyRect, sketchyLine, crayonCircle, crayonText } from './sketchy';
 import type { Game } from '../types';
 
@@ -307,15 +307,18 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (p.cheese > 0) {
-    ctx.fillStyle = '#fde047';
-    ctx.beginPath();
-    ctx.arc(csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 2, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
-    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 6);
+    drawCheeseShape(ctx, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2, 10); // Moved icon slightly down
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace';
+    // Draw count at the top of the icon area
+    ctx.fillText('' + p.cheese, csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 8);
+
+    ctx.fillStyle = SK.highlight; ctx.font = '7px monospace';
+    ctx.fillText('cheese', csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
   } else {
-    ctx.fillStyle = SK.dim; ctx.font = '10px monospace';
+    ctx.fillStyle = SK.dim; ctx.font = '8px monospace';
     ctx.fillText('--', csx + SLOT_SIZE / 2, barY + SLOT_SIZE / 2);
+    ctx.fillStyle = SK.dim; ctx.font = '7px monospace';
+    ctx.fillText('cheese', csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
   }
   if (game.cheeseCooldown > 0) {
     const cdPct = game.cheeseCooldown / 3.0;
@@ -338,8 +341,12 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
 
     const tt = TOOL_TYPES[p.tools[0]];
     const tx = toolX + SLOT_SIZE / 2;
-    const ty = barY + SLOT_SIZE / 2;
+    const ty = barY + SLOT_SIZE / 2 - 4;
     drawToolShape(ctx, tx, ty, p.tools[0], 12, game.time);
+
+    ctx.fillStyle = SK.highlight; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(tt.name.split(' ')[0].toLowerCase(), toolX + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
+
     ctx.fillStyle = SK.accent; ctx.font = '9px monospace'; ctx.textBaseline = 'alphabetic';
     ctx.fillText('Q', toolX + 5, barY - 2);
     if (p.tools.length > 1) {

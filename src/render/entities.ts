@@ -5,14 +5,14 @@ import {
 } from '../config';
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
-import { drawToolShape, drawLootShape } from './shapes';
+import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
 import { babySpritesReady, getBabyFrame } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
 function onScreen(x: number, y: number, m: number, game: Game): boolean {
   return x > game.camera.x - m && x < game.camera.x + VIEW_W + m &&
-         y > game.camera.y - m && y < game.camera.y + VIEW_H + m;
+    y > game.camera.y - m && y < game.camera.y + VIEW_H + m;
 }
 
 function sx(x: number, game: Game): number { return x - game.camera.x; }
@@ -111,12 +111,8 @@ export function renderCheesePickups(ctx: CanvasRenderingContext2D, game: Game): 
     // Shadow
     ctx.fillStyle = '#9ca3af';
     ctx.beginPath(); ctx.ellipse(px, py + 3, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
-    // Cheese triangle — crayon style
-    crayonTriangle(ctx, px, py - 6, px + 6, py + 2, px - 6, py + 2, {
-      fill: '#fde047', stroke: '#ca8a04', lineWidth: 2,
-    });
-    // Hole
-    crayonCircle(ctx, px - 1, py - 1, 1.5, { fill: '#ca8a04', jitterAmt: 0.2 });
+    // Cheese triangle
+    drawCheeseShape(ctx, px, py, 10);
     if (dist(game.player, cp) < T * 1.2) {
       crayonText(ctx, '+1 CHEESE', px, py - 16, {
         fill: 'rgba(253,224,71,0.8)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
@@ -290,11 +286,9 @@ export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
     if (c.isPacifier) {
       drawToolShape(ctx, cpx, cpy, 'pacifier', 7, game.time);
     } else {
-      // Cheese projectile — crayon triangle
-      crayonTriangle(ctx, cpx, cpy - 5, cpx + 5, cpy + 4, cpx - 5, cpy + 4, {
-        fill: '#fde047', stroke: '#ca8a04', lineWidth: 2,
-      });
+      drawCheeseShape(ctx, cpx, cpy, 7);
     }
+
   }
 }
 

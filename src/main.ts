@@ -43,7 +43,8 @@ onKeyDown((e) => {
     startMusic();
   }
 
-  if ((game.state === 'gameover' || game.state === 'win' || game.state === 'playing') && e.key.toLowerCase() === 'r') {
+  if ((game.state === 'gameover' || game.state === 'win' || game.state === 'playing' || game.state === 'paused') && e.key.toLowerCase() === 'r') {
+    e.preventDefault();
     game = initGame();
     game.state = 'playing';
     startMusic();
@@ -59,7 +60,7 @@ onKeyDown((e) => {
   }
 
   if (game.state === 'playing' && e.key.toLowerCase() === 'q' &&
-      !game.player.hiding && !game.player.looting && !game.player.searching && game.player.tools.length > 0 && game.qDownTime === 0) {
+    !game.player.hiding && !game.player.looting && !game.player.searching && game.player.tools.length > 0 && game.qDownTime === 0) {
     game.qDownTime = performance.now();
   }
 
@@ -167,7 +168,7 @@ function update(dt: number): void {
   }
 
   if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 2 &&
-      performance.now() - game.qDownTime >= 250) {
+    performance.now() - game.qDownTime >= 250) {
     game.wheelOpen = true;
   }
 
