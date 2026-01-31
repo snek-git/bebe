@@ -1,7 +1,7 @@
 import {
   BABY_RADIUS, PLAYER_RADIUS, T,
   STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
-  TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_CHASE_RANGE, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL, TODDLER_ROOM_DWELL_MAX,
+  TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL, TODDLER_ROOM_DWELL_MAX,
   VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
 } from '../config';
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
@@ -170,13 +170,25 @@ export function updateBabies(game: Game, dt: number): void {
         continue;
       }
 
+      // Chase trigger: detection bar > 0 OR direct line of sight
+      if (!b.chasing && (game.detection > 0 || (canBabySee(game, b) && !p.hiding))) {
+        b.chasing = true;
+        b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
+        b.pathIndex = 0;
+        b.pathTimer = TODDLER_PATH_INTERVAL;
+        b.pauseTimer = 0;
+        continue;
+      }
+
+      // Chase mode
       if (b.chasing) {
-        const pd = dist(b, p);
-        if (pd > TODDLER_CHASE_RANGE) {
+        // Lose player when detection drops to 0 AND can't directly see
+        if (game.detection <= 0 && !canBabySee(game, b)) {
           b.chasing = false;
           b.path = [];
           b.pathIndex = 0;
           b.pathTimer = 0;
+          b.pauseTimer = 0;
         } else {
           if (b.pathTimer! <= 0) {
             b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
@@ -201,13 +213,7 @@ export function updateBabies(game: Game, dt: number): void {
         }
       }
 
-      if (!b.chasing && canBabySee(game, b) && !p.hiding) {
-        b.chasing = true;
-        b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
-        b.pathIndex = 0;
-        b.pathTimer = TODDLER_PATH_INTERVAL;
-        continue;
-      }
+      // === ROAMING ===
 
       // Room tracking
       const curRoom = getCurrentRoom(b.x, b.y);
@@ -235,7 +241,6 @@ export function updateBabies(game: Game, dt: number): void {
 
       const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
       if (dwellExpired || b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
-        // Pop next room from queue, skip current room
         let nextRoom = b.roamQueue!.shift();
         if (nextRoom === curRoom && b.roamQueue!.length > 0) nextRoom = b.roamQueue!.shift();
         if (!nextRoom) nextRoom = 'lobby';
@@ -243,9 +248,29 @@ export function updateBabies(game: Game, dt: number): void {
         b.path = findPath(game.grid, b.x, b.y, target.x, target.y);
         b.pathIndex = 0;
         b.pathTimer = TODDLER_ROAM_INTERVAL;
+        b.pauseTimer = 0;
         if (dwellExpired) b.roomDwell = 0;
       }
 
+      // Stop-and-scan: periodically stop to aggressively look around
+      b.pauseTimer += dt;
+      const SCAN_INTERVAL = 3.5;
+      const SCAN_DURATION = 1.0;
+      if (b.pauseTimer >= SCAN_INTERVAL && b.pauseTimer < SCAN_INTERVAL + SCAN_DURATION) {
+        const scanT = (b.pauseTimer - SCAN_INTERVAL) / SCAN_DURATION;
+        const fwd = (b.path && b.path.length > 0 && b.pathIndex! < b.path.length)
+          ? Math.atan2(b.path[b.pathIndex!].y - b.y, b.path[b.pathIndex!].x - b.x)
+          : b.facing;
+        // Sharp snaps: left, right, left, right
+        const snap = Math.sin(scanT * Math.PI * 3.5) * 1.5;
+        b.facing = rotateTowards(b.facing, fwd + snap, toddlerTurn * 2);
+        continue;
+      }
+      if (b.pauseTimer >= SCAN_INTERVAL + SCAN_DURATION) {
+        b.pauseTimer = 0;
+      }
+
+      // Follow path with zigzag searching movement
       if (b.path && b.path.length > 0 && b.pathIndex! < b.path.length) {
         const target = b.path[b.pathIndex!];
         const tdx = target.x - b.x, tdy = target.y - b.y;
@@ -253,14 +278,12 @@ export function updateBabies(game: Game, dt: number): void {
         if (td < 8) {
           b.pathIndex = (b.pathIndex ?? 0) + 1;
         } else {
-          // Searching movement: deliberate left-right-left-right zigzag
           const burst = 0.85 + 0.3 * Math.abs(Math.sin(game.time * 9 + b.y));
           const zigzag = Math.sin(game.time * 5) * 20;
           const nx = tdx / td, ny = tdy / td;
           b.x += (nx * TODDLER_SPEED * burst - ny * zigzag) * dt;
           b.y += (ny * TODDLER_SPEED * burst + nx * zigzag) * dt;
           resolveWalls(game.grid, b);
-          // Head snaps left-right while searching
           const scanSnap = Math.sin(game.time * 5) * 0.8;
           b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx) + scanSnap, toddlerTurn);
         }
