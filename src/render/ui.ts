@@ -11,31 +11,30 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
   const time = game.time;
 
-  // Milk bottle detection indicator
+  // Crying baby detection indicator
   const det = game.detection;
-  const milkIndex = Math.min(5, Math.floor(det / 20));
+  const babyIndex = Math.min(5, Math.floor(det / 20));
   const fillFraction = (det % 20) / 20;
 
-  const bottleW = 22, bottleH = 34, bottleGap = 5;
-  const totalW = 5 * bottleW + 4 * bottleGap;
+  const faceSize = 26, faceGap = 6;
+  const totalW = 5 * faceSize + 4 * faceGap;
   const startX = VIEW_W / 2 - totalW / 2;
-  const baseY = 8;
+  const baseY = 20;
 
   for (let i = 0; i < 5; i++) {
-    const bx = startX + i * (bottleW + bottleGap);
+    const fx = startX + i * (faceSize + faceGap) + faceSize / 2;
 
-    // Bounce offset from drop animation
+    // Bounce offset from fill animation
     const anim = game.milkFillAnim[i];
     const bounceT = anim / 0.3;
-    const yOff = bounceT > 0 ? -12 * Math.sin(bounceT * Math.PI) * bounceT : 0;
-    const by = baseY + yOff;
+    const yOff = bounceT > 0 ? -10 * Math.sin(bounceT * Math.PI) * bounceT : 0;
+    const fy = baseY + yOff;
 
-    // Determine fill level for this bottle
     let fill = 0;
-    if (i < milkIndex) fill = 1;
-    else if (i === milkIndex) fill = fillFraction;
+    if (i < babyIndex) fill = 1;
+    else if (i === babyIndex) fill = fillFraction;
 
-    drawMilkBottle(ctx, bx, by, bottleW, bottleH, fill, bounceT > 0);
+    drawCryingBaby(ctx, fx, fy, faceSize / 2, fill, bounceT > 0, time);
   }
 
   // === HOTBAR (bottom center) ===
@@ -146,75 +145,135 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   renderMinimap(ctx, game);
 }
 
-function drawMilkBottle(
+function drawCryingBaby(
   ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number,
-  fillLevel: number, animating: boolean,
+  cx: number, cy: number, r: number,
+  fillLevel: number, animating: boolean, time: number,
 ): void {
-  const bodyW = w - 6, bodyH = h - 8;
-  const bodyX = x + 3, bodyY = y + 8;
-  const neckW = 8, neckH = 5;
-  const neckX = x + w / 2 - neckW / 2, neckY = bodyY - neckH;
-  const capW = 11, capH = 3;
-  const capX = x + w / 2 - capW / 2, capY = neckY - capH;
-  const r = 3; // corner radius for body
-
-  // Build bottle clip path
-  function bottlePath() {
-    ctx.beginPath();
-    // Cap
-    ctx.rect(capX, capY, capW, capH);
-    // Neck
-    ctx.rect(neckX, neckY, neckW, neckH);
-    // Body (rounded rect)
-    ctx.moveTo(bodyX + r, bodyY);
-    ctx.lineTo(bodyX + bodyW - r, bodyY);
-    ctx.arcTo(bodyX + bodyW, bodyY, bodyX + bodyW, bodyY + r, r);
-    ctx.lineTo(bodyX + bodyW, bodyY + bodyH - r);
-    ctx.arcTo(bodyX + bodyW, bodyY + bodyH, bodyX + bodyW - r, bodyY + bodyH, r);
-    ctx.lineTo(bodyX + r, bodyY + bodyH);
-    ctx.arcTo(bodyX, bodyY + bodyH, bodyX, bodyY + bodyH - r, r);
-    ctx.lineTo(bodyX, bodyY + r);
-    ctx.arcTo(bodyX, bodyY, bodyX + r, bodyY, r);
-    ctx.closePath();
-  }
-
-  // Empty outline
   ctx.save();
-  bottlePath();
-  ctx.strokeStyle = 'rgba(72,129,140,0.45)';
+
+  // Face color: peachy skin → red as fill increases
+  const rr = Math.round(255 - fillLevel * 40);
+  const gg = Math.round(205 - fillLevel * 100);
+  const bb = Math.round(180 - fillLevel * 100);
+  const faceColor = fillLevel > 0 ? `rgb(${rr},${gg},${bb})` : 'rgba(80,100,110,0.5)';
+
+  // Head circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = faceColor;
+  ctx.fill();
+  ctx.strokeStyle = fillLevel > 0 ? 'rgba(200,120,100,0.6)' : 'rgba(72,129,140,0.4)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  if (fillLevel > 0) {
-    // Fill from bottom up using clip
-    ctx.save();
-    bottlePath();
-    ctx.clip();
+  if (fillLevel <= 0) {
+    // Sleeping face: closed eyes (—  —) and small mouth
+    ctx.strokeStyle = 'rgba(72,129,140,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy - 2); ctx.lineTo(cx - 2, cy - 2);
+    ctx.moveTo(cx + 2, cy - 2); ctx.lineTo(cx + 5, cy - 2);
+    ctx.stroke();
+    // Tiny "z"
+    ctx.fillStyle = 'rgba(72,129,140,0.4)';
+    ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('z', cx + r + 2, cy - r + 2);
+  } else if (fillLevel < 1) {
+    // Worried → crying transition
+    const worry = fillLevel;
 
-    const totalH = capH + neckH + bodyH;
-    const fillTop = capY + totalH * (1 - fillLevel);
+    // Eyes: dots that get bigger, with brows
+    const eyeR = 1.2 + worry * 0.8;
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(cx - 4, cy - 2, eyeR, 0, Math.PI * 2);
+    ctx.arc(cx + 4, cy - 2, eyeR, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Milk fill color
-    if (fillLevel >= 1 && animating) {
-      ctx.shadowColor = 'rgba(255,255,255,0.6)';
-      ctx.shadowBlur = 6;
+    // Worried brows (angled up toward center)
+    ctx.strokeStyle = 'rgba(60,40,30,0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 5 - worry * 2);
+    ctx.lineTo(cx - 3, cy - 6);
+    ctx.moveTo(cx + 7, cy - 5 - worry * 2);
+    ctx.lineTo(cx + 3, cy - 6);
+    ctx.stroke();
+
+    // Mouth: from flat line → open oval
+    const mouthOpen = worry * 3;
+    ctx.fillStyle = `rgba(180,80,80,${0.3 + worry * 0.5})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, 2.5 + worry, mouthOpen, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tear drops (appear as worry grows)
+    if (worry > 0.4) {
+      const tearAlpha = (worry - 0.4) / 0.6;
+      ctx.fillStyle = `rgba(120,180,220,${tearAlpha * 0.7})`;
+      const tearY = cy + 1 + worry * 4;
+      ctx.beginPath();
+      ctx.ellipse(cx - 5, tearY, 1, 1.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + 5, tearY, 1, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.fillStyle = fillLevel >= 1 ? 'rgba(255,255,255,0.9)' : 'rgba(119,152,158,0.6)';
-    ctx.fillRect(x, fillTop, w, totalH);
+  } else {
+    // Full crying: big open mouth, tears streaming, shake
+    const shake = Math.sin(time * 25) * 1.5;
+    ctx.translate(shake, 0);
 
-    ctx.restore();
+    // Scrunched eyes (^ ^)
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, cy - 2);
+    ctx.lineTo(cx - 4, cy - 4);
+    ctx.lineTo(cx - 2, cy - 2);
+    ctx.moveTo(cx + 2, cy - 2);
+    ctx.lineTo(cx + 4, cy - 4);
+    ctx.lineTo(cx + 6, cy - 2);
+    ctx.stroke();
 
-    // Glow for full bottles
-    if (fillLevel >= 1) {
-      ctx.save();
-      bottlePath();
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    // Angry brows
+    ctx.strokeStyle = 'rgba(60,40,30,0.7)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 7);
+    ctx.lineTo(cx - 2, cy - 5);
+    ctx.moveTo(cx + 7, cy - 7);
+    ctx.lineTo(cx + 2, cy - 5);
+    ctx.stroke();
+
+    // Big open crying mouth
+    ctx.fillStyle = 'rgba(180,60,60,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, 4, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Streaming tears
+    ctx.fillStyle = 'rgba(120,180,220,0.6)';
+    const t1 = (time * 3) % 1;
+    const t2 = (time * 3 + 0.5) % 1;
+    for (const t of [t1, t2]) {
+      const ty = cy + t * 10;
+      ctx.beginPath();
+      ctx.ellipse(cx - 6, ty, 1.2, 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + 6, ty, 1.2, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Glow when animating
+    if (animating) {
+      ctx.shadowColor = 'rgba(239,68,68,0.5)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(239,68,68,0.3)';
       ctx.lineWidth = 2;
-      ctx.shadowColor = 'rgba(255,255,255,0.35)';
-      ctx.shadowBlur = 6;
       ctx.stroke();
-      ctx.restore();
+      ctx.shadowBlur = 0;
     }
   }
 
