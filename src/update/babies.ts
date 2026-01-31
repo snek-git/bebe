@@ -264,7 +264,7 @@ export function updateBabies(game: Game, dt: number): void {
         if (!b.recentRooms) b.recentRooms = [];
         if (!b.recentRooms.includes(curRoom)) {
           b.recentRooms.push(curRoom);
-          if (b.recentRooms.length > 4) b.recentRooms.shift();
+          if (b.recentRooms.length > 6) b.recentRooms.shift();
         }
       } else {
         b.roomDwell = (b.roomDwell ?? 0) + dt;
@@ -282,14 +282,27 @@ export function updateBabies(game: Game, dt: number): void {
 
       const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
       if (dwellExpired || b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
-        let nextRoom = b.roamQueue!.shift();
-        if (nextRoom === curRoom && b.roamQueue!.length > 0) nextRoom = b.roamQueue!.shift();
-        if (!nextRoom) nextRoom = 'lobby';
-        const target = roomCenter(nextRoom);
-        b.path = findPath(game.grid, b.x, b.y, target.x, target.y);
-        b.pathIndex = 0;
-        b.pathTimer = TODDLER_ROAM_INTERVAL;
-        b.pauseTimer = 0;
+        // Try rooms until we get a valid path
+        let found = false;
+        for (let attempts = 0; attempts < 5 && b.roamQueue!.length > 0; attempts++) {
+          let nextRoom = b.roamQueue!.shift()!;
+          if (nextRoom === curRoom && b.roamQueue!.length > 0) nextRoom = b.roamQueue!.shift()!;
+          const target = roomCenter(nextRoom);
+          const path = findPath(game.grid, b.x, b.y, target.x, target.y);
+          if (path.length > 0) {
+            b.path = path;
+            b.pathIndex = 0;
+            b.pathTimer = TODDLER_ROAM_INTERVAL;
+            b.pauseTimer = 0;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          // Fallback: clear queue so it reshuffles next frame
+          b.roamQueue = [];
+          b.pathTimer = 0.2;
+        }
         if (dwellExpired) b.roomDwell = 0;
       }
 

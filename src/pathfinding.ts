@@ -17,14 +17,35 @@ function heuristic(ax: number, ay: number, bx: number, by: number): number {
 
 const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
+function nearestWalkable(grid: number[][], tx: number, ty: number): { x: number; y: number } | null {
+  if (isWalkable(grid, tx, ty)) return { x: tx, y: ty };
+  for (let r = 1; r <= 6; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+        if (isWalkable(grid, tx + dx, ty + dy)) return { x: tx + dx, y: ty + dy };
+      }
+    }
+  }
+  return null;
+}
+
 export function findPath(grid: number[][], startX: number, startY: number, goalX: number, goalY: number): Point[] {
-  const sx = Math.floor(startX / T);
-  const sy = Math.floor(startY / T);
-  const gx = Math.floor(goalX / T);
-  const gy = Math.floor(goalY / T);
+  let sx = Math.floor(startX / T);
+  let sy = Math.floor(startY / T);
+  let gx = Math.floor(goalX / T);
+  let gy = Math.floor(goalY / T);
+
+  // Snap start/goal to nearest walkable tile if on furniture/wall
+  const startSnap = nearestWalkable(grid, sx, sy);
+  if (!startSnap) return [];
+  sx = startSnap.x; sy = startSnap.y;
+
+  const goalSnap = nearestWalkable(grid, gx, gy);
+  if (!goalSnap) return [];
+  gx = goalSnap.x; gy = goalSnap.y;
 
   if (sx === gx && sy === gy) return [];
-  if (!isWalkable(grid, gx, gy)) return [];
 
   const open: Node[] = [];
   const closed = new Set<number>();
