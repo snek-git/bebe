@@ -28,8 +28,7 @@ export class GameScene extends Phaser.Scene {
   game_!: Game;
   tileLayer!: Phaser.Tilemaps.TilemapLayer | Phaser.Tilemaps.TilemapGPULayer;
   playerSprite!: Phaser.GameObjects.Arc;
-  babySprites: Phaser.GameObjects.Sprite[] = [];
-  babyImages: Phaser.Textures.Texture[] = [];
+  babyImages: Phaser.GameObjects.Image[] = [];
 
   // Input
   cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -45,8 +44,18 @@ export class GameScene extends Phaser.Scene {
   uiGfx!: Phaser.GameObjects.Graphics;
   overlayGfx!: Phaser.GameObjects.Graphics;
 
-  // UI camera
-  uiCamera!: Phaser.Cameras.Scene2D.Camera;
+  // UI Text objects (screen-space, setScrollFactor(0))
+  detectionText!: Phaser.GameObjects.Text;
+  staminaLabel!: Phaser.GameObjects.Text;
+  statusText!: Phaser.GameObjects.Text;
+  cheeseCountText!: Phaser.GameObjects.Text;
+  controlsText!: Phaser.GameObjects.Text;
+  lootMessageText!: Phaser.GameObjects.Text;
+  overlayTitleText!: Phaser.GameObjects.Text;
+  overlaySubText!: Phaser.GameObjects.Text;
+  overlayStatsText!: Phaser.GameObjects.Text;
+  overlayPromptText!: Phaser.GameObjects.Text;
+  retryButtonText!: Phaser.GameObjects.Text;
 
   // Music
   music!: Phaser.Sound.BaseSound;
@@ -98,6 +107,15 @@ export class GameScene extends Phaser.Scene {
     playerBody.setOffset(-PLAYER_RADIUS, -PLAYER_RADIUS);
     playerBody.setCollideWorldBounds(true);
 
+    // Create baby image objects
+    const tints: Record<string, number> = { crawler: 0xffffff, stawler: 0xff69b4, toddler: 0xff4444 };
+    for (const b of this.game_.babies) {
+      const img = this.add.image(b.x, b.y, 'baby1');
+      img.setDisplaySize(T * 2, T * 2);
+      img.setTint(tints[b.type] || 0xffffff);
+      this.babyImages.push(img);
+    }
+
     // Camera follows player
     this.cameras.main.startFollow(this.playerSprite, true, 0.15, 0.15);
 
@@ -109,6 +127,33 @@ export class GameScene extends Phaser.Scene {
     this.overlayGfx = this.add.graphics();
     this.overlayGfx.setScrollFactor(0);
     this.overlayGfx.setDepth(200);
+
+    // UI Text objects
+    const mono = { fontFamily: 'monospace' };
+    this.detectionText = this.add.text(VIEW_W / 2, 33, '', { ...mono, fontSize: '9px', color: '#6b7280' })
+      .setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
+    this.staminaLabel = this.add.text(VIEW_W - 52, 27, 'peekaboo', { ...mono, fontSize: '9px', fontStyle: 'bold', color: '#9ca3af' })
+      .setOrigin(0.5, 1).setScrollFactor(0).setDepth(101);
+    this.statusText = this.add.text(VIEW_W - 12, 22, '', { ...mono, fontSize: '10px', color: '#fbbf24' })
+      .setOrigin(1, 1).setScrollFactor(0).setDepth(101);
+    this.cheeseCountText = this.add.text(0, 0, '', { ...mono, fontSize: '9px', fontStyle: 'bold', color: '#ffffff' })
+      .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+    this.controlsText = this.add.text(VIEW_W / 2, VIEW_H - 8, 'WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', { ...mono, fontSize: '9px', color: 'rgba(255,255,255,0.55)' })
+      .setOrigin(0.5, 1).setScrollFactor(0).setDepth(101);
+    this.lootMessageText = this.add.text(VIEW_W / 2, VIEW_H - 62, '', { ...mono, fontSize: '11px', fontStyle: 'bold', color: '#4ade80' })
+      .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+
+    // Overlay text (gameover/win)
+    this.overlayTitleText = this.add.text(VIEW_W / 2, 0, '', { ...mono, fontSize: '44px', fontStyle: 'bold', color: '#ef4444' })
+      .setOrigin(0.5, 1).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.overlaySubText = this.add.text(VIEW_W / 2, 0, '', { ...mono, fontSize: '14px', color: '#fca5a5' })
+      .setOrigin(0.5, 1).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.overlayStatsText = this.add.text(VIEW_W / 2, 0, '', { ...mono, fontSize: '12px', color: '#e5e7eb' })
+      .setOrigin(0.5, 1).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.overlayPromptText = this.add.text(VIEW_W / 2, 0, '', { ...mono, fontSize: '14px', fontStyle: 'bold', color: '#e5e7eb' })
+      .setOrigin(0.5, 1).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.retryButtonText = this.add.text(VIEW_W / 2, 0, '', { ...mono, fontSize: '14px', fontStyle: 'bold', color: '#fdba74' })
+      .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(201).setVisible(false);
 
     // Input
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -217,19 +262,23 @@ export class GameScene extends Phaser.Scene {
     const dt = Math.min(delta / 1000, 0.1);
     const game = this.game_;
 
-    if (game.state !== 'playing' && game.state !== 'gameover') return;
+    if (game.state !== 'playing' && game.state !== 'gameover' && game.state !== 'win') return;
 
     game.time += dt;
 
     if (game.state === 'gameover') {
       game.gameOverTimer += dt;
-      // Handle retry fade
       if (game.retryFadeTimer > 0) {
         game.retryFadeTimer = Math.max(0, game.retryFadeTimer - dt);
         if (game.retryFadeTimer === 0 && game.retryPending) {
           this.scene.restart();
         }
       }
+      this.renderAll();
+      return;
+    }
+
+    if (game.state === 'win') {
       this.renderAll();
       return;
     }
@@ -503,6 +552,13 @@ export class GameScene extends Phaser.Scene {
     this.visionGfx.clear();
     this.uiGfx.clear();
     this.overlayGfx.clear();
+
+    // Hide overlay texts each frame (gameover/win renderers show them if needed)
+    this.overlayTitleText.setVisible(false);
+    this.overlaySubText.setVisible(false);
+    this.overlayStatsText.setVisible(false);
+    this.overlayPromptText.setVisible(false);
+    this.retryButtonText.setVisible(false);
 
     // Render world objects
     this.renderExit();
@@ -787,9 +843,13 @@ export class GameScene extends Phaser.Scene {
 
   renderBabies(): void {
     const game = this.game_;
-    const SPRITE_SIZE = T * 2;
+    const tints: Record<string, number> = { crawler: 0xffffff, stawler: 0xff69b4, toddler: 0xff4444 };
 
-    for (const b of game.babies) {
+    for (let i = 0; i < game.babies.length; i++) {
+      const b = game.babies[i];
+      const img = this.babyImages[i];
+      if (!img) continue;
+
       const stunned = b.stunTimer > 0;
       let bx = b.x, by = b.y;
 
@@ -806,7 +866,7 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      // Draw baby using sprites
+      // Frame selection
       const moving = b.pauseTimer <= 0 && !stunned;
       const FRAME_DURATION = 0.15;
       let frameIndex: number;
@@ -821,33 +881,22 @@ export class GameScene extends Phaser.Scene {
       }
 
       const frameKey = `baby${frameIndex + 1}`;
-      const half = SPRITE_SIZE / 2;
+      img.setTexture(frameKey);
+      img.setPosition(bx, by);
+      img.setRotation(b.facing + Math.PI / 2);
+      img.setTint(stunned ? 0x888888 : (tints[b.type] || 0xffffff));
+      img.setAlpha(stunned ? 0.5 : 1);
 
-      // Use a temporary sprite or draw from the texture
-      // For now, draw a colored circle as placeholder
-      const colors: Record<string, number> = { crawler: 0xfb923c, stawler: 0xec4899, toddler: 0xdc2626 };
-      this.worldGfx.fillStyle(stunned ? 0x888888 : (colors[b.type] || 0xfb923c), stunned ? 0.5 : 1);
-      this.worldGfx.fillCircle(bx, by, BABY_RADIUS);
-      this.worldGfx.lineStyle(1.5, 0xfdba74, 1);
-      this.worldGfx.strokeCircle(bx, by, BABY_RADIUS);
-
-      // Direction indicator
-      if (!stunned) {
-        const dirX = bx + Math.cos(b.facing) * BABY_RADIUS;
-        const dirY = by + Math.sin(b.facing) * BABY_RADIUS;
-        this.worldGfx.fillStyle(0xffffff, 0.6);
-        this.worldGfx.fillCircle(dirX, dirY, 2);
-      }
-
-      // Alert indicators using worldGfx
+      // Alert indicator
       if (!stunned && !b.distracted && canBabySee(game, b) && !game.player.hiding) {
         this.worldGfx.fillStyle(0xef4444, 1);
         this.worldGfx.fillCircle(bx, by - BABY_RADIUS - 8, 3);
       }
+
+      // Stun stars
       if (stunned) {
-        // Stun stars
-        for (let i = 0; i < 3; i++) {
-          const a = game.time * 5 + i * 2.094;
+        for (let j = 0; j < 3; j++) {
+          const a = game.time * 5 + j * 2.094;
           this.worldGfx.fillStyle(0xfde047, 1);
           this.worldGfx.fillCircle(bx + Math.cos(a) * 16, by + Math.sin(a) * 16 - 4, 2);
         }
@@ -1007,6 +1056,49 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(cx, cy, 1.5);
     }
 
+    // Text updates
+    if (det > 0) {
+      this.detectionText.setText(Math.round(det) + '%');
+      this.detectionText.setColor(det > 60 ? '#ef4444' : det > 30 ? '#fbbf24' : '#e5e7eb');
+    } else {
+      this.detectionText.setText('DETECTION');
+      this.detectionText.setColor('#6b7280');
+    }
+
+    this.staminaLabel.setColor(p.peekExhausted ? '#ef4444' : '#9ca3af');
+
+    if (p.looting) {
+      this.statusText.setText('LOOTING...').setColor('#fbbf24').setVisible(true);
+    } else if (p.searching) {
+      this.statusText.setText('SEARCHING...').setColor('#a78bfa').setVisible(true);
+    } else if (p.sprinting) {
+      this.statusText.setText('SPRINT').setColor('#86efac').setVisible(true);
+    } else {
+      this.statusText.setVisible(false);
+    }
+
+    // Cheese count on hotbar
+    const SLOT_SIZE2 = 34;
+    const hasTools2 = p.tools.length > 0;
+    const slotCount2 = 1 + (hasTools2 ? 1 : 0);
+    const barW3 = slotCount2 * (SLOT_SIZE2 + 3) - 3 + (hasTools2 ? 8 : 0);
+    const hotbarX = VIEW_W / 2 - barW3 / 2;
+    const hotbarY = VIEW_H - SLOT_SIZE2 - 14;
+    if (p.cheese > 0) {
+      this.cheeseCountText.setText('' + p.cheese).setPosition(hotbarX + SLOT_SIZE2 / 2, hotbarY + SLOT_SIZE2 - 5).setVisible(true);
+    } else {
+      this.cheeseCountText.setText('--').setColor('#4b5563').setPosition(hotbarX + SLOT_SIZE2 / 2, hotbarY + SLOT_SIZE2 / 2).setVisible(true);
+    }
+
+    // Loot message
+    if (p.loot >= TOTAL_LOOT) {
+      this.lootMessageText.setText('GOLDEN BEBE ACQUIRED! HEAD TO THE EXIT!');
+      this.lootMessageText.setAlpha(Math.sin(game.time * 4) * 0.3 + 0.7);
+      this.lootMessageText.setVisible(true);
+    } else {
+      this.lootMessageText.setVisible(false);
+    }
+
     // Minimap
     this.renderMinimap();
   }
@@ -1085,14 +1177,55 @@ export class GameScene extends Phaser.Scene {
     g.fillRoundedRect(cardX, cardY, cardW, cardH, 10);
     g.lineStyle(2, 0xef4444, 0.5);
     g.strokeRoundedRect(cardX, cardY, cardW, cardH, 10);
+
+    this.overlayTitleText.setPosition(VIEW_W / 2, cardY + 58)
+      .setText('BUSTED!').setColor('#ef4444').setFontSize('44px').setVisible(true);
+    this.overlaySubText.setPosition(VIEW_W / 2, cardY + 98)
+      .setText('The baby saw your face and started crying.')
+      .setColor('#fca5a5').setFontSize('14px').setVisible(true);
+    this.overlayStatsText.setPosition(VIEW_W / 2, cardY + 124)
+      .setText('Keys: ' + game.player.keys.length + '/3 | Golden Bebe: ' + (game.player.loot > 0 ? 'YES' : 'NO'))
+      .setColor('#e5e7eb').setFontSize('12px').setVisible(true);
+
+    if (game.gameOverTimer > 0.8) {
+      // Retry button background
+      const btnW = 180, btnH = 36;
+      const btnX = VIEW_W / 2 - btnW / 2, btnY = cardY + cardH - 52;
+      g.fillStyle(0x0f172a, 0.9);
+      g.fillRoundedRect(btnX, btnY + 5, btnW, btnH, 8);
+      g.fillStyle(0x0f172a, 1);
+      g.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
+      g.lineStyle(2, 0xf97316, 1);
+      g.strokeRoundedRect(btnX, btnY, btnW, btnH, 8);
+
+      this.overlayPromptText.setPosition(VIEW_W / 2, btnY - 10)
+        .setText('Press R or click').setColor('#cbd5e1').setFontSize('11px').setVisible(true);
+      this.retryButtonText.setPosition(VIEW_W / 2, btnY + btnH / 2)
+        .setText('RETRY HEIST').setVisible(true);
+    }
   }
 
   renderWinScreen(): void {
+    const game = this.game_;
     const g = this.overlayGfx;
     g.fillStyle(0x000000, 0.6);
     g.fillRect(0, 0, VIEW_W, VIEW_H);
 
     g.fillStyle(0x4ade80, 0.3);
-    g.fillRoundedRect(VIEW_W / 2 - 200, VIEW_H / 2 - 60, 400, 120, 10);
+    g.fillRoundedRect(VIEW_W / 2 - 200, VIEW_H / 2 - 80, 400, 180, 10);
+
+    this.overlayTitleText.setPosition(VIEW_W / 2, VIEW_H / 2 - 40)
+      .setText('ESCAPED!').setColor('#4ade80').setFontSize('48px').setVisible(true);
+    this.overlaySubText.setPosition(VIEW_W / 2, VIEW_H / 2 + 10)
+      .setText('You stole the Golden Bebe and got away clean.')
+      .setColor('#86efac').setFontSize('14px').setVisible(true);
+    this.overlayStatsText.setPosition(VIEW_W / 2, VIEW_H / 2 + 50)
+      .setText('Cheese remaining: ' + game.player.cheese + ' | Tools: ' + game.player.tools.length)
+      .setColor('#fbbf24').setFontSize('12px').setVisible(true);
+
+    const pulse = Math.sin(this.time.now / 300) * 0.3 + 0.7;
+    this.overlayPromptText.setPosition(VIEW_W / 2, VIEW_H / 2 + 90)
+      .setText('PRESS R TO PLAY AGAIN').setColor('#e5e7eb').setFontSize('14px')
+      .setAlpha(pulse).setVisible(true);
   }
 }
