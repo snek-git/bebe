@@ -108,7 +108,7 @@ function moveStawlerToward(
 ): void {
   const dx = tx - b.x, dy = ty - b.y;
   const d = Math.sqrt(dx * dx + dy * dy);
-  if (d < 4) {
+  if (d < 14) {
     b.vel = 0;
     return;
   }
@@ -119,7 +119,7 @@ function moveStawlerToward(
 
   // Push! Burst to full speed when slow enough and far enough from target
   const coastDist = b.vel / STAWLER_FRICTION;
-  if (b.vel < STAWLER_PUSH_THRESHOLD && d > coastDist + 15) {
+  if (b.vel < STAWLER_PUSH_THRESHOLD && d > coastDist + 16) {
     b.vel = pushSpeed;
   }
 
@@ -365,10 +365,12 @@ export function updateBabies(game: Game, dt: number): void {
     const wp = b.waypoints[b.wpIndex];
     const dx = wp.x - b.x, dy = wp.y - b.y;
     const d = Math.sqrt(dx * dx + dy * dy);
+    const arrivalDist = b.type === 'stawler' ? 14 : 4;
 
-    if (d >= 4) {
-      const nextTx = Math.floor((b.x + (dx / d) * b.speed * dt * 3) / T);
-      const nextTy = Math.floor((b.y + (dy / d) * b.speed * dt * 3) / T);
+    if (d >= arrivalDist) {
+      const lookAhead = Math.max(b.speed * dt * 3, T);
+      const nextTx = Math.floor((b.x + (dx / d) * lookAhead) / T);
+      const nextTy = Math.floor((b.y + (dy / d) * lookAhead) / T);
       const door = getDoorAt(game.doors, nextTx, nextTy);
       if (door && door.state === 'closed') {
         b.doorPushTimer = (b.doorPushTimer || 0) + dt;
@@ -386,7 +388,7 @@ export function updateBabies(game: Game, dt: number): void {
       }
     }
 
-    if (d < 4) {
+    if (d < arrivalDist) {
       if (b.type === 'stawler') b.vel = 0;
       b.pauseTimer += dt;
       const nw = b.waypoints[(b.wpIndex + 1) % b.waypoints.length];

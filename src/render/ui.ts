@@ -1,5 +1,5 @@
 import {
-  VIEW_W, VIEW_H, T, COLS, ROWS, TOTAL_LOOT, PEEKABOO_MAX,
+  VIEW_W, VIEW_H, T, COLS, ROWS, TOTAL_LOOT, STAMINA_MAX,
   TOOL_TYPES,
 } from '../config';
 import { mouseScreen } from '../input';
@@ -88,14 +88,14 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const pbw = 80, pbh = 8, pbx = VIEW_W - pbw - 12, pby = 30;
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
   ctx.fillStyle = '#1e1e2e'; ctx.fillRect(pbx, pby, pbw, pbh);
-  const stPct = p.peekStamina / PEEKABOO_MAX;
-  ctx.fillStyle = p.peekExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
+  const stPct = p.stamina / STAMINA_MAX;
+  ctx.fillStyle = p.staminaExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
   ctx.fillRect(pbx, pby, pbw * stPct, pbh);
   ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1; ctx.strokeRect(pbx, pby, pbw, pbh);
   const showPulse = p.hiding && game.peekabooPulseTimer > 0;
   if (!showPulse) {
     ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = p.peekExhausted ? '#ef4444' : '#9ca3af';
+    ctx.fillStyle = p.staminaExhausted ? '#ef4444' : '#9ca3af';
     ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
     ctx.textAlign = 'right';
   }
@@ -107,9 +107,9 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     const wave = (Math.sin(time * 10) + 1) / 2;
     const size = 9 + Math.round(wave * 2);
     ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
-    const stPct2 = p.peekStamina / PEEKABOO_MAX;
+    const stPct2 = p.stamina / STAMINA_MAX;
     let r = 74, g = 222, b = 128;
-    if (p.peekExhausted) {
+    if (p.staminaExhausted) {
       r = 239; g = 68; b = 68;
     } else if (stPct2 < 0.3) {
       const k = Math.min(1, (0.3 - stPct2) / 0.3);
@@ -297,7 +297,9 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.beginPath();
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
-      if (game.minimapSeen[y]?.[x]) continue;
+      // Cloud-based fog — skip tiles not covered by any opaque cloud
+      const hasFog = game.minimapClouds.some(c => c.dissolve < 1 && Math.abs(c.tx - x) < 3 && Math.abs(c.ty - y) < 3);
+      if (!hasFog) continue;
       ctx.rect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
     }
   }

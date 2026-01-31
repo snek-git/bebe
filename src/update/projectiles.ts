@@ -57,12 +57,13 @@ export function updateProjectiles(game: Game, dt: number): void {
         c.timer = stunTime;
       }
     } else {
-      c.timer -= dt;
       if (c.stuckBaby) {
+        c.timer -= dt;
         c.x = c.stuckBaby.x;
         c.y = c.stuckBaby.y - BABY_RADIUS - 4;
+        if (c.timer <= 0) c.dead = true;
       }
-      if (c.timer <= 0) c.dead = true;
+      // Missed cheese (no stuckBaby) stays on ground — picked up via checkPickups
     }
   }
 

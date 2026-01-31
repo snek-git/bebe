@@ -1,5 +1,5 @@
 import {
-  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, PEEKABOO_MAX, CHEESE_SPEED,
+  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, STAMINA_MAX, CHEESE_SPEED,
   TV_DURATION, TV_RANGE, DISTRACTION_DURATION, DISTRACTION_RANGE,
   VIEW_W, VIEW_H, LOOT_TYPES, TOOL_TYPES,
 } from '../config';
@@ -355,7 +355,7 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   const px = sx(p.x, game), py = sy(p.y, game) + bob;
 
   if (p.hiding) {
-    const stPct = p.peekStamina / PEEKABOO_MAX;
+    const stPct = p.stamina / STAMINA_MAX;
     const flicker = stPct < 0.3 ? (Math.sin(time * 12) * 0.15 + 0.45) : 0.6;
     ctx.globalAlpha = flicker;
     ctx.fillStyle = stPct < 0.3 ? '#a3e635' : '#22c55e';

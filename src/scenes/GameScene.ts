@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   T, COLS, ROWS, VIEW_W, VIEW_H, PLAYER_SPEED, SPRINT_SPEED, PLAYER_RADIUS,
-  BABY_RADIUS, PEEKABOO_MAX, PEEKABOO_RECHARGE, CHEESE_COOLDOWN,
+  BABY_RADIUS, STAMINA_MAX, STAMINA_RECHARGE, SPRINT_DRAIN, CHEESE_COOLDOWN,
   LOOT_TIME, SEARCH_TIME, TOTAL_LOOT,
   TV_DURATION, DISTRACTION_DURATION,
   SPRINT_NOISE_RANGE, SLAM_NOISE_RANGE,
@@ -38,6 +38,7 @@ export class GameScene extends Phaser.Scene {
   spaceKey!: Phaser.Input.Keyboard.Key;
   shiftKey!: Phaser.Input.Keyboard.Key;
   rKey!: Phaser.Input.Keyboard.Key;
+  escKey!: Phaser.Input.Keyboard.Key;
 
   // Graphics layers
   worldGfx!: Phaser.GameObjects.Graphics;
@@ -74,10 +75,14 @@ export class GameScene extends Phaser.Scene {
     this.game_ = initGame();
     this.game_.state = 'playing';
 
-    // Build tilemap from grid
+    // Build tilemap from grid — apply checkered floor pattern
     const grid = this.game_.grid;
+    // Create a display grid with floor tiles alternated (0 and 3) for checkered pattern
+    const displayGrid = grid.map((row, y) =>
+      row.map((v, x) => v === 0 ? ((x + y) % 2 === 0 ? 0 : 3) : v)
+    );
     const map = this.make.tilemap({
-      data: grid,
+      data: displayGrid,
       tileWidth: T,
       tileHeight: T,
     });
@@ -114,9 +119,10 @@ export class GameScene extends Phaser.Scene {
     // Create baby image objects
     const tints: Record<string, number> = { crawler: 0xffffff, stawler: 0xff69b4, toddler: 0xff4444 };
     for (const b of this.game_.babies) {
-      const img = this.add.image(b.x, b.y, 'baby1');
+      const tex = b.type === 'stawler' ? 'str1' : 'baby1';
+      const img = this.add.image(b.x, b.y, tex);
       img.setDisplaySize(T * 2, T * 2);
-      img.setTint(tints[b.type] || 0xffffff);
+      if (b.type !== 'stawler') img.setTint(tints[b.type] || 0xffffff);
       this.babyImages.push(img);
     }
 
@@ -136,7 +142,7 @@ export class GameScene extends Phaser.Scene {
     const mono = { fontFamily: 'monospace' };
     this.detectionText = this.add.text(VIEW_W / 2, 33, '', { ...mono, fontSize: '9px', color: '#6b7280' })
       .setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
-    this.staminaLabel = this.add.text(VIEW_W - 52, 27, 'peekaboo', { ...mono, fontSize: '9px', fontStyle: 'bold', color: '#9ca3af' })
+    this.staminaLabel = this.add.text(60, VIEW_H - 37, 'idle', { ...mono, fontSize: '11px', fontStyle: 'bold', color: '#4ade80' })
       .setOrigin(0.5, 1).setScrollFactor(0).setDepth(101);
     this.statusText = this.add.text(VIEW_W - 12, 22, '', { ...mono, fontSize: '10px', color: '#fbbf24' })
       .setOrigin(1, 1).setScrollFactor(0).setDepth(101);
@@ -178,6 +184,16 @@ export class GameScene extends Phaser.Scene {
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.shiftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.rKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+
+    // ESC key for pause toggle
+    this.escKey.on('down', () => {
+      if (this.game_.state === 'playing') {
+        this.game_.state = 'paused';
+      } else if (this.game_.state === 'paused') {
+        this.game_.state = 'playing';
+      }
+    });
 
     // Space key for peekaboo (prevent default browser scroll)
     this.spaceKey.on('down', () => {
@@ -198,6 +214,7 @@ export class GameScene extends Phaser.Scene {
           targetX: worldPoint.x, targetY: worldPoint.y,
           landed: false, timer: 0, dead: false, stuckBaby: null,
         });
+        this.sound.play(Math.random() < 0.5 ? 'cheese1' : 'cheese2', { volume: 1.0 });
       }
     });
 
@@ -225,7 +242,7 @@ export class GameScene extends Phaser.Scene {
 
     // R key for retry — in-place reset (scene.restart/scene.start are broken in Phaser 4 RC6)
     this.input.keyboard!.on('keydown-R', () => {
-      if (this.game_.state === 'gameover' || this.game_.state === 'win') {
+      if (this.game_.state === 'gameover' || this.game_.state === 'win' || this.game_.state === 'paused') {
         this.resetGame();
       }
     });
@@ -247,7 +264,10 @@ export class GameScene extends Phaser.Scene {
       const b = this.game_.babies[i];
       if (this.babyImages[i]) {
         this.babyImages[i].setPosition(b.x, b.y);
-        this.babyImages[i].setTint(tints[b.type] || 0xffffff);
+        const tex = b.type === 'stawler' ? 'str1' : 'baby1';
+        this.babyImages[i].setTexture(tex);
+        if (b.type !== 'stawler') this.babyImages[i].setTint(tints[b.type] || 0xffffff);
+        else this.babyImages[i].clearTint();
         this.babyImages[i].setAlpha(1);
         this.babyImages[i].setRotation(0);
         this.babyImages[i].setVisible(true);
@@ -268,9 +288,15 @@ export class GameScene extends Phaser.Scene {
     this.retryButtonText.setVisible(false);
   }
 
+  playClick(): void {
+    const keys = ['click1', 'click2', 'click3'];
+    this.sound.play(keys[Math.floor(Math.random() * keys.length)], { volume: 0.4 });
+  }
+
   useTool(): void {
     const game = this.game_;
     if (game.player.tools.length === 0 || game.player.hiding || game.player.looting) return;
+    this.playClick();
     const tool = game.player.tools[0];
     if (tool === 'remote') {
       let best: typeof game.tvs[0] | null = null;
@@ -308,6 +334,11 @@ export class GameScene extends Phaser.Scene {
     const dt = Math.min(delta / 1000, 0.1);
     const game = this.game_;
 
+    if (game.state === 'paused') {
+      this.renderAll();
+      return;
+    }
+
     if (game.state !== 'playing' && game.state !== 'gameover' && game.state !== 'win') return;
 
     game.time += dt;
@@ -335,16 +366,16 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Tool wheel hold detection
-    if (this.qKey.isDown && !game.wheelOpen && game.player.tools.length >= 2 && game.qDownTime === 0) {
+    if (this.qKey.isDown && !game.wheelOpen && game.player.tools.length >= 1 && game.qDownTime === 0) {
       game.qDownTime = time;
     }
-    if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 2 &&
+    if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 1 &&
         time - game.qDownTime >= 250) {
       game.wheelOpen = true;
     }
 
     // Tool wheel hover tracking
-    if (game.wheelOpen && game.player.tools.length >= 2) {
+    if (game.wheelOpen && game.player.tools.length >= 1) {
       const pointer = this.input.activePointer;
       const cx = VIEW_W / 2, cy = VIEW_H / 2;
       const mdx = pointer.x - cx, mdy = pointer.y - cy;
@@ -375,7 +406,7 @@ export class GameScene extends Phaser.Scene {
     updateDetection(game, dt);
     checkPickups(game);
     checkWin(game);
-    updateMinimapSeen(game);
+    updateMinimapSeen(game, dt);
 
     // Sync player sprite position (game state -> Phaser sprite)
     this.playerSprite.setPosition(game.player.x, game.player.y);
@@ -393,20 +424,18 @@ export class GameScene extends Phaser.Scene {
     const game = this.game_;
     const drainMult = p.gear.includes('sunglasses') ? SUNGLASSES_DRAIN_MULT : 1.0;
 
-    // Peekaboo
-    if (this.spaceKey.isDown && !p.looting && !p.searching && !p.peekExhausted && p.peekStamina > 0) {
+    // Peekaboo (hiding) — uses unified stamina
+    if (this.spaceKey.isDown && !p.looting && !p.searching && !p.staminaExhausted && p.stamina > 0) {
       p.hiding = true;
       p.vx = 0;
       p.vy = 0;
-      p.peekStamina = Math.max(0, p.peekStamina - dt * drainMult);
-      if (p.peekStamina <= 0) {
-        p.peekExhausted = true;
+      p.stamina = Math.max(0, p.stamina - dt * drainMult);
+      if (p.stamina <= 0) {
+        p.staminaExhausted = true;
         p.hiding = false;
       }
     } else {
       p.hiding = false;
-      p.peekStamina = Math.min(PEEKABOO_MAX, p.peekStamina + dt * PEEKABOO_RECHARGE);
-      if (p.peekExhausted && p.peekStamina >= PEEKABOO_MAX * 0.4) p.peekExhausted = false;
     }
 
     if (game.wheelOpen) {
@@ -414,8 +443,9 @@ export class GameScene extends Phaser.Scene {
       p.vy = 0;
     }
 
-    // Sprint
-    p.sprinting = this.shiftKey.isDown;
+    // Sprint — requires stamina
+    const wantSprint = this.shiftKey.isDown;
+    p.sprinting = wantSprint && !p.staminaExhausted && p.stamina > 0;
 
     if (!p.hiding && !p.looting && !p.searching && !game.wheelOpen) {
       let dx = 0, dy = 0;
@@ -429,14 +459,28 @@ export class GameScene extends Phaser.Scene {
       p.vy = dy * speed;
       if (dx || dy) p.facing = Math.atan2(dy, dx);
 
-      // Sprint noise
+      // Sprint stamina drain (only when actually moving)
       if (p.sprinting && (dx || dy)) {
+        p.stamina = Math.max(0, p.stamina - dt * SPRINT_DRAIN);
+        if (p.stamina <= 0) {
+          p.sprinting = false;
+          p.staminaExhausted = true;
+        }
+
+        // Sprint noise
         game.noiseEvents.push({
           x: p.x, y: p.y,
           radius: SPRINT_NOISE_RANGE,
           timer: NOISE_DURATION * 0.3,
         });
       }
+    }
+
+    // Stamina recharge: when not hiding and not actively sprinting-with-movement
+    const activelySprintMoving = p.sprinting && (p.vx || p.vy);
+    if (!p.hiding && !activelySprintMoving) {
+      p.stamina = Math.min(STAMINA_MAX, p.stamina + dt * STAMINA_RECHARGE);
+      if (p.staminaExhausted && p.stamina >= STAMINA_MAX * 0.4) p.staminaExhausted = false;
     }
 
     // Loot grabbing
@@ -482,6 +526,7 @@ export class GameScene extends Phaser.Scene {
 
     // E key interactions
     if (!p.looting && !p.searching && !p.hiding && Phaser.Input.Keyboard.JustDown(this.eKey)) {
+      this.playClick();
       let acted = false;
 
       // Try looting
@@ -646,6 +691,7 @@ export class GameScene extends Phaser.Scene {
     this.renderProximityLabels();
     if (game.wheelOpen) this.renderToolWheel();
 
+    if (game.state === 'paused') this.renderPauseOverlay();
     if (game.state === 'gameover') this.renderGameOver();
     if (game.state === 'win') this.renderWinScreen();
   }
@@ -789,9 +835,11 @@ export class GameScene extends Phaser.Scene {
       const px = cp.x, py = cp.y + bob;
       this.worldGfx.fillStyle(0xfde047, 0.15);
       this.worldGfx.fillCircle(px, py, 12);
-      // Cheese triangle
-      this.worldGfx.fillStyle(0xfde047, 1);
-      this.worldGfx.fillTriangle(px, py - 6, px + 6, py + 2, px - 6, py + 2);
+      // American cheese slice (square)
+      this.worldGfx.fillStyle(0xfbbf24, 1);
+      this.worldGfx.fillRect(px - 6, py - 6, 12, 12);
+      this.worldGfx.fillStyle(0xffffff, 0.35);
+      this.worldGfx.fillEllipse(px - 1, py - 1, 2, 1.5);
     }
   }
 
@@ -901,8 +949,19 @@ export class GameScene extends Phaser.Scene {
     const game = this.game_;
     for (const c of game.cheeses) {
       if (c.stuckBaby && c.landed) continue;
-      this.worldGfx.fillStyle(0xfde047, 1);
-      this.worldGfx.fillTriangle(c.x, c.y - 5, c.x + 5, c.y + 4, c.x - 5, c.y + 4);
+      if (c.isPacifier) {
+        // Pacifier: yellow circle + ring
+        this.worldGfx.fillStyle(0xf59e0b, 1);
+        this.worldGfx.fillCircle(c.x, c.y, 4);
+        this.worldGfx.lineStyle(2, 0xf59e0b, 0.8);
+        this.worldGfx.strokeCircle(c.x, c.y - 3, 5);
+      } else {
+        // American cheese slice (square)
+        this.worldGfx.fillStyle(0xfbbf24, 1);
+        this.worldGfx.fillRect(c.x - 5, c.y - 5, 10, 10);
+        this.worldGfx.fillStyle(0xffffff, 0.3);
+        this.worldGfx.fillEllipse(c.x - 1, c.y - 1, 1.5, 1);
+      }
     }
   }
 
@@ -945,17 +1004,51 @@ export class GameScene extends Phaser.Scene {
           : (tick === 0 ? 1 : 0);
       }
 
-      const frameKey = `baby${frameIndex + 1}`;
+      const frameKey = b.type === 'stawler' ? `str${frameIndex + 1}` : `baby${frameIndex + 1}`;
       img.setTexture(frameKey);
       img.setPosition(bx, by);
       img.setRotation(b.facing + Math.PI / 2);
-      img.setTint(stunned ? 0x888888 : (tints[b.type] || 0xffffff));
+      if (b.type === 'stawler') {
+        if (stunned) img.setTint(0x888888); else img.clearTint();
+      } else {
+        img.setTint(stunned ? 0x888888 : (tints[b.type] || 0xffffff));
+      }
       img.setAlpha(stunned ? 0.5 : 1);
 
-      // Alert indicator
+      // Distraction heart indicator
+      if (!stunned && b.distracted) {
+        // Pink heart using two circles + triangle
+        const hx = bx, hy = by - BABY_RADIUS - 12;
+        this.worldGfx.fillStyle(0xf472b6, 0.9);
+        this.worldGfx.fillCircle(hx - 2.5, hy - 1, 3);
+        this.worldGfx.fillCircle(hx + 2.5, hy - 1, 3);
+        this.worldGfx.fillTriangle(hx - 5, hy, hx + 5, hy, hx, hy + 5);
+      }
+
+      // Alert indicators
+      const indY = BABY_RADIUS + 14;
       if (!stunned && !b.distracted && canBabySee(game, b) && !game.player.hiding) {
+        // Red ! when spotting player
         this.worldGfx.fillStyle(0xef4444, 1);
-        this.worldGfx.fillCircle(bx, by - BABY_RADIUS - 8, 3);
+        this.worldGfx.fillRect(bx - 1.5, by - indY - 8, 3, 7);
+        this.worldGfx.fillCircle(bx, by - indY + 1, 1.5);
+      }
+      if (b.type === 'stawler' && b.chasing && !stunned) {
+        // Pink ?! when stawler chasing
+        this.worldGfx.fillStyle(0xf472b6, 1);
+        this.worldGfx.fillCircle(bx - 3, by - indY - 4, 1.5);
+        this.worldGfx.fillRect(bx - 4.5, by - indY - 2, 3, 4);
+        this.worldGfx.fillCircle(bx - 3, by - indY + 3, 1);
+        this.worldGfx.fillRect(bx + 1, by - indY - 8, 3, 7);
+        this.worldGfx.fillCircle(bx + 2.5, by - indY + 1, 1.5);
+      }
+      if (b.type === 'toddler' && b.chasing && !stunned) {
+        // Red !! when toddler chasing
+        this.worldGfx.fillStyle(0xef4444, 1);
+        this.worldGfx.fillRect(bx - 4, by - indY - 8, 3, 7);
+        this.worldGfx.fillCircle(bx - 2.5, by - indY + 1, 1.5);
+        this.worldGfx.fillRect(bx + 1, by - indY - 8, 3, 7);
+        this.worldGfx.fillCircle(bx + 2.5, by - indY + 1, 1.5);
       }
 
       // Stun stars
@@ -979,9 +1072,26 @@ export class GameScene extends Phaser.Scene {
     this.playerSprite.setPosition(p.x, p.y);
 
     if (p.hiding) {
-      const stPct = p.peekStamina / PEEKABOO_MAX;
+      const stPct = p.stamina / STAMINA_MAX;
+      const flicker = stPct < 0.3 ? (Math.sin(game.time * 12) * 0.15 + 0.45) : 0.6;
       this.playerSprite.setFillStyle(stPct < 0.3 ? 0xa3e635 : 0x22c55e);
-      this.playerSprite.setAlpha(stPct < 0.3 ? 0.45 : 0.6);
+      this.playerSprite.setAlpha(flicker);
+
+      // Peekaboo eyes (yellow arcs)
+      this.worldGfx.lineStyle(3, 0xfcd34d, flicker);
+      this.worldGfx.beginPath();
+      this.worldGfx.arc(px, py, PLAYER_RADIUS * 0.5, -0.8, 0.8);
+      this.worldGfx.strokePath();
+      this.worldGfx.beginPath();
+      this.worldGfx.arc(px, py, PLAYER_RADIUS * 0.5, Math.PI - 0.8, Math.PI + 0.8);
+      this.worldGfx.strokePath();
+
+      // Hiding ring
+      const ringSize = stPct < 0.3
+        ? (PLAYER_RADIUS + 3 + Math.sin(game.time * 8) * 3)
+        : (PLAYER_RADIUS + 6 + Math.sin(game.time * 4) * 2);
+      this.worldGfx.lineStyle(1.5, stPct < 0.3 ? 0xef4444 : 0x4ade80, stPct < 0.3 ? 0.4 : 0.3);
+      this.worldGfx.strokeCircle(px, py, ringSize);
     } else {
       this.playerSprite.setFillStyle(p.sprinting ? 0x86efac : 0x4ade80);
       this.playerSprite.setAlpha(1);
@@ -1024,33 +1134,134 @@ export class GameScene extends Phaser.Scene {
     const p = game.player;
     const g = this.uiGfx;
 
-    // Detection bar
+    // Detection — 5 crying baby face indicators (matching main's drawCryingBaby)
     const det = game.detection;
-    const detPct = det / 100;
-    const bw = 160, bh = 12, bx = VIEW_W / 2 - bw / 2, by = 10;
+    const babyIndex = Math.min(5, Math.floor(det / 20));
+    const fillFraction = (det % 20) / 20;
+    const faceR = 13, faceGap = 6;
+    const faceTotalW = 5 * (faceR * 2) + 4 * faceGap;
+    const faceStartX = VIEW_W / 2 - faceTotalW / 2;
+    const faceBaseY = 20;
 
-    g.fillStyle(0x000000, 0.5);
-    g.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
-    g.fillStyle(0x374151, 1);
-    g.fillRect(bx, by, bw, bh);
+    for (let i = 0; i < 5; i++) {
+      const fx = faceStartX + i * (faceR * 2 + faceGap) + faceR;
 
-    if (det > 0) {
-      // Detection fill - gradient approximation
-      g.fillStyle(det > 50 ? 0xef4444 : 0xfbbf24, 1);
-      g.fillRect(bx, by, bw * detPct, bh);
+      // Bounce from milkFillAnim
+      const anim = game.milkFillAnim[i];
+      const bounceT = anim > 0 ? anim / 0.3 : 0;
+      const yOff = bounceT > 0 ? -10 * Math.sin(bounceT * Math.PI) * bounceT : 0;
+      const fy = faceBaseY + yOff;
+
+      let fill = 0;
+      if (i < babyIndex) fill = 1;
+      else if (i === babyIndex) fill = fillFraction;
+
+      // Face color: peachy → red as fill increases
+      const rr = Math.round(255 - fill * 40);
+      const gg = Math.round(205 - fill * 100);
+      const bb = Math.round(180 - fill * 100);
+      const faceColor = fill > 0
+        ? ((rr << 16) | (gg << 8) | bb)
+        : 0x506e74;
+      const faceAlpha = fill > 0 ? 1 : 0.5;
+
+      // Head circle
+      g.fillStyle(faceColor, faceAlpha);
+      g.fillCircle(fx, fy, faceR);
+      g.lineStyle(2, fill > 0 ? 0xc87864 : 0x48818c, fill > 0 ? 0.6 : 0.4);
+      g.strokeCircle(fx, fy, faceR);
+
+      if (fill <= 0) {
+        // Sleeping: closed eyes (— —) and tiny mouth
+        g.lineStyle(1.5, 0x48818c, 0.5);
+        g.beginPath();
+        g.moveTo(fx - 5, fy - 2); g.lineTo(fx - 2, fy - 2);
+        g.moveTo(fx + 2, fy - 2); g.lineTo(fx + 5, fy - 2);
+        g.strokePath();
+        // Tiny mouth line
+        g.lineStyle(1, 0x48818c, 0.3);
+        g.beginPath();
+        g.moveTo(fx - 2, fy + 4); g.lineTo(fx + 2, fy + 4);
+        g.strokePath();
+      } else if (fill < 1) {
+        // Worried → crying transition
+        const worry = fill;
+        const eyeR = 1.2 + worry * 0.8;
+
+        // Eyes
+        g.fillStyle(0x333333, 1);
+        g.fillCircle(fx - 4, fy - 2, eyeR);
+        g.fillCircle(fx + 4, fy - 2, eyeR);
+
+        // Worried brows (angled up toward center)
+        g.lineStyle(1.2, 0x3c281e, 0.6);
+        g.beginPath();
+        g.moveTo(fx - 7, fy - 5 - worry * 2); g.lineTo(fx - 3, fy - 6);
+        g.moveTo(fx + 7, fy - 5 - worry * 2); g.lineTo(fx + 3, fy - 6);
+        g.strokePath();
+
+        // Mouth: small → open oval
+        const mouthOpen = worry * 3;
+        g.fillStyle(0xb45050, 0.3 + worry * 0.5);
+        g.fillEllipse(fx, fy + 4, 2.5 + worry, mouthOpen);
+
+        // Tear drops (appear past 40% worry)
+        if (worry > 0.4) {
+          const tearAlpha = (worry - 0.4) / 0.6 * 0.7;
+          const tearY = fy + 1 + worry * 4;
+          g.fillStyle(0x78b4dc, tearAlpha);
+          g.fillEllipse(fx - 5, tearY, 1, 1.5);
+          g.fillEllipse(fx + 5, tearY, 1, 1.5);
+        }
+      } else {
+        // Full crying: scrunched eyes, open mouth, streaming tears, shake
+        const shake = Math.sin(game.time * 25) * 1.5;
+        const sx = fx + shake;
+
+        // Scrunched eyes (^ ^)
+        g.lineStyle(1.5, 0x333333, 1);
+        g.beginPath();
+        g.moveTo(sx - 6, fy - 2); g.lineTo(sx - 4, fy - 4); g.lineTo(sx - 2, fy - 2);
+        g.moveTo(sx + 2, fy - 2); g.lineTo(sx + 4, fy - 4); g.lineTo(sx + 6, fy - 2);
+        g.strokePath();
+
+        // Angry brows
+        g.lineStyle(1.3, 0x3c281e, 0.7);
+        g.beginPath();
+        g.moveTo(sx - 7, fy - 7); g.lineTo(sx - 2, fy - 5);
+        g.moveTo(sx + 7, fy - 7); g.lineTo(sx + 2, fy - 5);
+        g.strokePath();
+
+        // Big open crying mouth
+        g.fillStyle(0xb43c3c, 0.8);
+        g.fillEllipse(sx, fy + 4, 4, 3.5);
+
+        // Streaming tears (animated)
+        g.fillStyle(0x78b4dc, 0.6);
+        const t1 = (game.time * 3) % 1;
+        const t2 = (game.time * 3 + 0.5) % 1;
+        for (const t of [t1, t2]) {
+          const ty = fy + t * 10;
+          g.fillEllipse(sx - 6, ty, 1.2, 2);
+          g.fillEllipse(sx + 6, ty, 1.2, 2);
+        }
+
+        // Glow when animating
+        if (bounceT > 0) {
+          g.lineStyle(2, 0xef4444, 0.3);
+          g.strokeCircle(fx, fy, faceR + 1);
+        }
+      }
     }
 
-    g.lineStyle(det > 70 ? 1.5 : 1, det > 70 ? 0xef4444 : 0x6b7280, det > 70 ? 0.7 : 1);
-    g.strokeRect(bx, by, bw, bh);
-
-    // Peekaboo stamina bar
-    const pbw = 80, pbh = 8, pbx = VIEW_W - pbw - 12, pby = 30;
+    // Unified stamina bar (bottom-left, matching main)
+    const pbw = 96, pbh = 10, pbx = 12, pby = VIEW_H - 34;
     g.fillStyle(0x000000, 0.4);
     g.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
     g.fillStyle(0x1e1e2e, 1);
     g.fillRect(pbx, pby, pbw, pbh);
-    const stPct = p.peekStamina / PEEKABOO_MAX;
-    g.fillStyle(p.peekExhausted ? 0xef4444 : (stPct < 0.3 ? 0xf97316 : 0x4ade80), 1);
+    const stPct = p.stamina / STAMINA_MAX;
+    g.fillStyle(p.staminaExhausted ? 0xef4444 : (stPct < 0.3 ? 0xf97316 : 0x4ade80), 1);
     g.fillRect(pbx, pby, pbw * stPct, pbh);
     g.lineStyle(1, 0x6b7280, 1);
     g.strokeRect(pbx, pby, pbw, pbh);
@@ -1097,8 +1308,14 @@ export class GameScene extends Phaser.Scene {
     g.strokeRect(barX, barY, SLOT_SIZE, SLOT_SIZE);
 
     if (p.cheese > 0) {
-      g.fillStyle(0xfde047, 1);
-      g.fillCircle(barX + SLOT_SIZE / 2, barY + SLOT_SIZE / 2 - 2, 8);
+      // American cheese slice (square, matching main)
+      const cx = barX + SLOT_SIZE / 2, cy = barY + SLOT_SIZE / 2;
+      const sz = 14;
+      g.fillStyle(0xfbbf24, 1);
+      g.fillRect(cx - sz / 2, cy - sz / 2, sz, sz);
+      // Highlight
+      g.fillStyle(0xffffff, 0.35);
+      g.fillEllipse(cx - sz * 0.15, cy - sz * 0.15, sz * 0.2, sz * 0.15);
     }
 
     // Cheese cooldown overlay
@@ -1133,26 +1350,30 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(cx, cy, 1.5);
     }
 
-    // Text updates
-    if (det > 0) {
-      this.detectionText.setText(Math.round(det) + '%');
-      this.detectionText.setColor(det > 60 ? '#ef4444' : det > 30 ? '#fbbf24' : '#e5e7eb');
-    } else {
-      this.detectionText.setText('DETECTION');
-      this.detectionText.setColor('#6b7280');
-    }
-
-    this.staminaLabel.setColor(p.peekExhausted ? '#ef4444' : '#9ca3af');
-
-    if (p.looting) {
-      this.statusText.setText('LOOTING...').setColor('#fbbf24').setVisible(true);
+    // Stamina label (above bar, matching main's states)
+    let staminaLabelText = 'idle';
+    let staminaLabelColor = '#4ade80';
+    if (p.staminaExhausted) {
+      staminaLabelText = 'exhausted';
+      staminaLabelColor = '#ef4444';
+    } else if (p.hiding) {
+      staminaLabelText = 'peekaboo';
+      staminaLabelColor = '#4ade80';
+    } else if (p.sprinting && (p.vx || p.vy)) {
+      staminaLabelText = 'sprint';
+      staminaLabelColor = '#60a5fa';
     } else if (p.searching) {
-      this.statusText.setText('SEARCHING...').setColor('#a78bfa').setVisible(true);
-    } else if (p.sprinting) {
-      this.statusText.setText('SPRINT').setColor('#86efac').setVisible(true);
-    } else {
-      this.statusText.setVisible(false);
+      staminaLabelText = 'searching';
+      staminaLabelColor = '#a78bfa';
+    } else if (p.looting) {
+      staminaLabelText = 'looting';
+      staminaLabelColor = '#fbbf24';
     }
+    this.staminaLabel.setText(staminaLabelText);
+    this.staminaLabel.setColor(staminaLabelColor);
+
+    // Status text is now handled by stamina label
+    this.statusText.setVisible(false);
 
     // Cheese count on hotbar
     const SLOT_SIZE2 = 34;
@@ -1189,14 +1410,11 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x000000, 0.6);
     g.fillRect(mmX - 1, mmY - 1, mmW + 2, mmH + 2);
 
+    // Draw all tiles
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
-        if (game.minimapSeen[y]?.[x]) {
-          const v = game.grid[y][x];
-          g.fillStyle(v === 1 ? 0x3a3a5c : (v === 2 ? 0x2a1f14 : 0x1e1e2e), 1);
-        } else {
-          g.fillStyle(0xf8fafc, 1);
-        }
+        const v = game.grid[y][x];
+        g.fillStyle(v === 1 ? 0x3a3a5c : (v === 2 ? 0x2a1f14 : 0x1e1e2e), 1);
         g.fillRect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
       }
     }
@@ -1225,6 +1443,24 @@ export class GameScene extends Phaser.Scene {
       (VIEW_W / T) * mmS,
       (VIEW_H / T) * mmS
     );
+
+    // Cloud fog overlay
+    for (const cloud of game.minimapClouds) {
+      if (cloud.dissolve >= 1) continue;
+      const alpha = 1 - cloud.dissolve;
+      const cx = mmX + cloud.tx * mmS;
+      const cy = mmY + cloud.ty * mmS;
+      const r = cloud.r;
+      const s = cloud.seed;
+
+      // Multi-layer puffs for natural cloud shape
+      g.fillStyle(0xf8fafc, alpha * 0.9);
+      g.fillCircle(cx, cy, r);
+      g.fillStyle(0xf1f5f9, alpha * 0.7);
+      g.fillCircle(cx + ((s % 7) - 3), cy + ((s % 5) - 2), r * 0.7);
+      g.fillStyle(0xe2e8f0, alpha * 0.5);
+      g.fillCircle(cx - ((s % 6) - 3), cy + ((s % 4) - 2), r * 0.5);
+    }
   }
 
   renderProximityLabels(): void {
@@ -1277,7 +1513,7 @@ export class GameScene extends Phaser.Scene {
   renderToolWheel(): void {
     const game = this.game_;
     const tools = game.player.tools;
-    if (tools.length < 2) return;
+    if (tools.length < 1) return;
 
     const g = this.overlayGfx;
     const cx = VIEW_W / 2, cy = VIEW_H / 2;
@@ -1342,6 +1578,18 @@ export class GameScene extends Phaser.Scene {
         .setText(tt.name).setColor('#e9d5ff').setFontSize('10px')
         .setVisible(true);
     }
+  }
+
+  renderPauseOverlay(): void {
+    const g = this.overlayGfx;
+    g.fillStyle(0x000000, 0.55);
+    g.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    this.overlayTitleText.setPosition(VIEW_W / 2, VIEW_H / 2 - 10)
+      .setText('PAUSED').setColor('#e5e7eb').setFontSize('36px').setVisible(true);
+    this.overlaySubText.setPosition(VIEW_W / 2, VIEW_H / 2 + 20)
+      .setText('ESC to resume  |  R to restart')
+      .setColor('#9ca3af').setFontSize('12px').setVisible(true);
   }
 
   renderGameOver(): void {

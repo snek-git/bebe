@@ -1,6 +1,6 @@
 import {
-  BABY_RADIUS, PEEKABOO_MAX, PLAYER_RADIUS, T, VIEW_H, VIEW_W,
-  LOOT_TABLE_WEIGHTS,
+  BABY_RADIUS, STAMINA_MAX, PLAYER_RADIUS, T, VIEW_H, VIEW_W,
+  LOOT_TABLE_WEIGHTS, COLS, ROWS,
 } from './config';
 import {
   TV_DEFS, DOOR_DEFS, CONTAINER_DEFS,
@@ -10,6 +10,7 @@ import { createGrid, roomCenter, roomPos } from './map';
 import type {
   Game, Baby, Loot, CheesePickup, ToolPickup, TV, Door,
   Container, ContainerItem, KeyPickup, GearPickup, GearType, ToolType,
+  MinimapCloud,
 } from './types';
 
 function rollLootTable(): ContainerItem | null {
@@ -35,6 +36,25 @@ function rollLootTable(): ContainerItem | null {
   return null;
 }
 
+function generateClouds(): MinimapCloud[] {
+  const clouds: MinimapCloud[] = [];
+  const spacing = 2.8;
+  for (let gy = -1; gy < ROWS + 1; gy += spacing) {
+    for (let gx = -1; gx < COLS + 1; gx += spacing) {
+      const tx = gx + (Math.random() - 0.5) * 1.6; // ±0.8 tile jitter
+      const ty = gy + (Math.random() - 0.5) * 1.6;
+      clouds.push({
+        tx,
+        ty,
+        r: 8 + Math.random() * 5, // 8–13 minimap-px
+        dissolve: 0,
+        seed: Math.floor(Math.random() * 10000),
+      });
+    }
+  }
+  return clouds;
+}
+
 export function initGame(): Game {
   const grid = createGrid();
   const start = roomCenter('foyer');
@@ -52,8 +72,8 @@ export function initGame(): Game {
     cheese: 2,
     loot: 0,
     radius: PLAYER_RADIUS,
-    peekStamina: PEEKABOO_MAX,
-    peekExhausted: false,
+    stamina: STAMINA_MAX,
+    staminaExhausted: false,
     tools: [] as any[],
     keys: [] as any[],
     gear: [] as any[],
@@ -177,11 +197,12 @@ export function initGame(): Game {
     retryFadeTimer: 0,
     retryPending: false,
     peekabooPulseTimer: 0,
-    minimapSeen: Array.from({ length: grid.length }, () => Array(grid[0].length).fill(false)),
+    minimapClouds: generateClouds(),
     wheelOpen: false,
     wheelHover: -1,
     qDownTime: 0,
     time: 0,
     camera: { x: player.x - VIEW_W / 2, y: player.y - VIEW_H / 2 },
+    milkFillAnim: [],
   };
 }

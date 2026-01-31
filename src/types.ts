@@ -1,4 +1,4 @@
-export type GameState = 'title' | 'playing' | 'gameover' | 'win';
+export type GameState = 'title' | 'playing' | 'paused' | 'gameover' | 'win';
 export type ToolType = 'ipad' | 'remote' | 'pacifier';
 export type LootType = 'cash' | 'gold' | 'diamond' | 'key' | 'docs' | 'jewels' | 'coin';
 export type KeyType = 'keyA' | 'keyB' | 'keyC';
@@ -99,8 +99,8 @@ export interface Player {
   cheese: number;
   loot: number;
   radius: number;
-  peekStamina: number;
-  peekExhausted: boolean;
+  stamina: number;
+  staminaExhausted: boolean;
   tools: ToolType[];
   keys: KeyType[];
   gear: GearType[];
@@ -239,6 +239,14 @@ export interface NoiseEvent {
   timer: number;
 }
 
+export interface MinimapCloud {
+  tx: number;       // tile-space center X
+  ty: number;       // tile-space center Y
+  r: number;        // base radius in minimap-pixels (5-9)
+  dissolve: number; // 0 = opaque, >=1 = gone
+  seed: number;     // deterministic shape/color variation
+}
+
 export interface Game {
   state: GameState;
   grid: number[][];
@@ -262,10 +270,11 @@ export interface Game {
   retryFadeTimer: number;
   retryPending: boolean;
   peekabooPulseTimer: number;
-  minimapSeen: boolean[][];
+  minimapClouds: MinimapCloud[];
   wheelOpen: boolean;
   wheelHover: number;
   qDownTime: number;
   time: number;
   camera: Camera;
+  milkFillAnim: number[];
 }

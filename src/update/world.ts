@@ -42,6 +42,17 @@ export function checkPickups(game: Game): void {
       p.tools.push(tp.type);
     }
   }
+  // Reclaim missed cheese/pacifiers from the ground
+  for (const c of game.cheeses) {
+    if (c.landed && !c.stuckBaby && dist(p, c) < T * 0.6) {
+      if (c.isPacifier) {
+        p.tools.push('pacifier');
+      } else {
+        p.cheese++;
+      }
+      c.dead = true;
+    }
+  }
 }
 
 export function checkWin(game: Game): void {
@@ -66,16 +77,16 @@ export function updateCamera(game: Game, dt: number): void {
   game.camera.y = Math.max(0, Math.min(game.camera.y, ROWS * T - VIEW_H));
 }
 
-export function updateMinimapSeen(game: Game): void {
-  const startX = Math.floor(game.camera.x / T);
-  const startY = Math.floor(game.camera.y / T);
-  const endX = Math.floor((game.camera.x + VIEW_W) / T);
-  const endY = Math.floor((game.camera.y + VIEW_H) / T);
-  for (let y = startY; y <= endY; y++) {
-    if (y < 0 || y >= game.minimapSeen.length) continue;
-    for (let x = startX; x <= endX; x++) {
-      if (x < 0 || x >= game.minimapSeen[0].length) continue;
-      game.minimapSeen[y][x] = true;
+export function updateMinimapSeen(game: Game, dt: number): void {
+  const margin = 5; // dissolve clouds within 5 tiles beyond viewport edge
+  const startX = game.camera.x / T - margin;
+  const startY = game.camera.y / T - margin;
+  const endX = (game.camera.x + VIEW_W) / T + margin;
+  const endY = (game.camera.y + VIEW_H) / T + margin;
+  for (const cloud of game.minimapClouds) {
+    if (cloud.dissolve >= 1) continue;
+    if (cloud.tx >= startX && cloud.tx <= endX && cloud.ty >= startY && cloud.ty <= endY) {
+      cloud.dissolve += dt * 2.5; // ~0.4s full dissolve
     }
   }
 }
