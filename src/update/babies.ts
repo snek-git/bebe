@@ -1,5 +1,6 @@
 import {
-  BABY_RADIUS, PLAYER_RADIUS, CRAWLER_SPEED, CRAWLER_APPROACH_RANGE,
+  BABY_RADIUS, PLAYER_RADIUS,
+  STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
   VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE,
 } from '../config';
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
@@ -52,9 +53,37 @@ export function canBabySeePeeker(game: Game, b: Baby): boolean {
   const p = game.player;
   const dx = p.x - b.x, dy = p.y - b.y;
   const d = Math.sqrt(dx * dx + dy * dy);
-  if (d > CRAWLER_APPROACH_RANGE) return false;
+  if (d > STAWLER_APPROACH_RANGE) return false;
   if (Math.abs(angleDiff(Math.atan2(dy, dx), b.facing)) > VISION_ANGLE / 2) return false;
   return hasLOS(game.grid, b.x, b.y, p.x, p.y);
+}
+
+function moveStawlerToward(
+  b: Baby, tx: number, ty: number, pushSpeed: number, dt: number, grid: number[][]
+): void {
+  const dx = tx - b.x, dy = ty - b.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d < 4) {
+    b.vel = 0;
+    return;
+  }
+
+  // Friction: exponential drag (always coasting to a stop)
+  b.vel *= Math.exp(-STAWLER_FRICTION * dt);
+  if (b.vel < 1) b.vel = 0;
+
+  // Push! Burst to full speed when slow enough and far enough from target
+  const coastDist = b.vel / STAWLER_FRICTION;
+  if (b.vel < STAWLER_PUSH_THRESHOLD && d > coastDist + 15) {
+    b.vel = pushSpeed;
+  }
+
+  if (b.vel > 0) {
+    const nx = dx / d, ny = dy / d;
+    b.x += nx * b.vel * dt;
+    b.y += ny * b.vel * dt;
+    resolveWalls(grid, b);
+  }
 }
 
 export function updateBabies(game: Game, dt: number): void {
@@ -65,7 +94,7 @@ export function updateBabies(game: Game, dt: number): void {
 
     if (b.stunTimer > 0) {
       b.stunTimer -= dt;
-      if (b.crawler) b.chasing = false;
+      if (b.type === 'stawler') { b.chasing = false; b.vel = 0; }
       b.distracted = false;
       continue;
     }
@@ -73,13 +102,21 @@ export function updateBabies(game: Game, dt: number): void {
     const attr = nearestAttraction(game, b);
     if (attr) {
       b.distracted = true;
-      if (b.crawler) b.chasing = false;
+      if (b.type === 'stawler') b.chasing = false;
       const dx = attr.x - b.x, dy = attr.y - b.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d > 12) {
-        b.x += (dx / d) * b.speed * 0.7 * dt;
-        b.y += (dy / d) * b.speed * 0.7 * dt;
-        resolveWalls(game.grid, b);
+        if (b.type === 'stawler') {
+          moveStawlerToward(b, attr.x, attr.y, b.speed * 0.55, dt, game.grid);
+        } else {
+          const crawl = game.time * 8 + b.pauseTime * 10;
+          const stride = 0.6 + 0.4 * Math.abs(Math.sin(crawl));
+          const wobble = Math.sin(crawl * 2) * 6;
+          const nx = dx / d, ny = dy / d;
+          b.x += (nx * b.speed * 0.7 * stride - ny * wobble) * dt;
+          b.y += (ny * b.speed * 0.7 * stride + nx * wobble) * dt;
+          resolveWalls(game.grid, b);
+        }
       }
       b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
       b.pauseTimer = 0;
@@ -87,16 +124,14 @@ export function updateBabies(game: Game, dt: number): void {
     }
     b.distracted = false;
 
-    if (b.crawler) {
+    if (b.type === 'stawler') {
       const canSee = canBabySeePeeker(game, b);
       if (canSee && p.hiding) {
         b.chasing = true;
         const dx = p.x - b.x, dy = p.y - b.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d > BABY_RADIUS + PLAYER_RADIUS + 2) {
-          b.x += (dx / d) * CRAWLER_SPEED * dt;
-          b.y += (dy / d) * CRAWLER_SPEED * dt;
-          resolveWalls(game.grid, b);
+          moveStawlerToward(b, p.x, p.y, STAWLER_MAX_SPEED, dt, game.grid);
         }
         b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
         b.pauseTimer = 0;
@@ -110,6 +145,7 @@ export function updateBabies(game: Game, dt: number): void {
     const dx = wp.x - b.x, dy = wp.y - b.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d < 4) {
+      if (b.type === 'stawler') b.vel = 0;
       b.pauseTimer += dt;
       const nw = b.waypoints[(b.wpIndex + 1) % b.waypoints.length];
       const toN = Math.atan2(nw.y - b.y, nw.x - b.x);
@@ -125,11 +161,19 @@ export function updateBabies(game: Game, dt: number): void {
         b.pauseTimer = 0;
       }
     } else {
-      b.x += (dx / d) * b.speed * dt;
-      b.y += (dy / d) * b.speed * dt;
+      if (b.type === 'stawler') {
+        moveStawlerToward(b, wp.x, wp.y, b.speed, dt, game.grid);
+      } else {
+        const crawl = game.time * 8 + b.pauseTime * 10;
+        const stride = 0.6 + 0.4 * Math.abs(Math.sin(crawl));
+        const wobble = Math.sin(crawl * 2) * 6;
+        const nx = dx / d, ny = dy / d;
+        b.x += (nx * b.speed * stride - ny * wobble) * dt;
+        b.y += (ny * b.speed * stride + nx * wobble) * dt;
+        resolveWalls(game.grid, b);
+      }
       b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
       b.pauseTimer = 0;
-      resolveWalls(game.grid, b);
     }
   }
 }

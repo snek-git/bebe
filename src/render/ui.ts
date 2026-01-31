@@ -120,7 +120,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.fillRect(mmX + (game.player.x / T) * mmS - 1, mmY + (game.player.y / T) * mmS - 1, 3, 3);
 
   for (const b of game.babies) {
-    ctx.fillStyle = b.stunTimer > 0 ? '#fde047' : (b.crawler ? '#ec4899' : '#fb923c');
+    ctx.fillStyle = b.stunTimer > 0 ? '#fde047' : (b.type === 'stawler' ? '#ec4899' : '#fb923c');
     ctx.fillRect(mmX + (b.x / T) * mmS - 1, mmY + (b.y / T) * mmS - 1, 2, 2);
   }
 

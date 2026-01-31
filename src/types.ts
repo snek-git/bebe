@@ -53,6 +53,8 @@ export interface Player {
   tools: ToolType[];
 }
 
+export type BabyType = 'crawler' | 'stawler';
+
 export interface Baby {
   x: number;
   y: number;
@@ -63,7 +65,8 @@ export interface Baby {
   pauseTimer: number;
   pauseTime: number;
   stunTimer: number;
-  crawler: boolean;
+  type: BabyType;
+  vel: number;
   waypoints: Point[];
   chasing?: boolean;
   distracted?: boolean;

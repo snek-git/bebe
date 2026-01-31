@@ -157,7 +157,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
     const stunned = b.stunTimer > 0;
     const bx = sx(b.x, game), by = sy(b.y, game);
 
-    if (b.crawler) {
+    if (b.type === 'stawler') {
       ctx.fillStyle = stunned ? '#e879a0' : (b.chasing ? '#f472b6' : '#ec4899');
       ctx.beginPath(); ctx.ellipse(bx, by, BABY_RADIUS + 2, BABY_RADIUS - 2, 0, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#f9a8d4'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -179,7 +179,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
     const e2x = bx + Math.cos(b.facing + 0.4) * eo, e2y = by + Math.sin(b.facing + 0.4) * eo;
 
     if (stunned) {
-      ctx.strokeStyle = b.crawler ? '#831843' : '#7c2d12'; ctx.lineWidth = 1.5;
+      ctx.strokeStyle = b.type === 'stawler' ? '#831843' : '#7c2d12'; ctx.lineWidth = 1.5;
       for (const [ex, ey] of [[e1x, e1y], [e2x, e2y]]) {
         ctx.beginPath(); ctx.moveTo(ex - 2, ey - 2); ctx.lineTo(ex + 2, ey + 2);
         ctx.moveTo(ex + 2, ey - 2); ctx.lineTo(ex - 2, ey + 2); ctx.stroke();
@@ -217,7 +217,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.fillStyle = '#ef4444'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       ctx.fillText('!', bx, by - BABY_RADIUS - 6);
     }
-    if (b.crawler && b.chasing && !stunned) {
+    if (b.type === 'stawler' && b.chasing && !stunned) {
       ctx.fillStyle = '#f472b6'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       ctx.fillText('?!', bx, by - BABY_RADIUS - 6);
     }

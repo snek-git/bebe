@@ -1,4 +1,4 @@
-import { VISION_RANGE, VISION_ANGLE, CRAWLER_APPROACH_RANGE, T, VIEW_W, VIEW_H } from '../config';
+import { VISION_RANGE, VISION_ANGLE, STAWLER_APPROACH_RANGE, T, VIEW_W, VIEW_H } from '../config';
 import { isSolid } from '../map';
 import { canBabySee, canBabySeePeeker } from '../update/babies';
 import type { Game } from '../types';
@@ -13,9 +13,9 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
     if (b.x < cam.x - VISION_RANGE - 50 || b.x > cam.x + VIEW_W + VISION_RANGE + 50 ||
         b.y < cam.y - VISION_RANGE - 50 || b.y > cam.y + VIEW_H + VISION_RANGE + 50) continue;
 
-    const range = b.crawler ? CRAWLER_APPROACH_RANGE : VISION_RANGE;
+    const range = b.type === 'stawler' ? STAWLER_APPROACH_RANGE : VISION_RANGE;
     const seeing = canBabySee(game, b) && !game.player.hiding;
-    const crawlerSeeHiding = b.crawler && canBabySeePeeker(game, b) && game.player.hiding;
+    const crawlerSeeHiding = b.type === 'stawler' && canBabySeePeeker(game, b) && game.player.hiding;
     const halfAngle = VISION_ANGLE / 2;
 
     const pts: { x: number; y: number }[] = [];
@@ -41,12 +41,12 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
 
     if (seeing) ctx.fillStyle = 'rgba(239,68,68,0.18)';
     else if (crawlerSeeHiding) ctx.fillStyle = 'rgba(244,114,182,0.15)';
-    else ctx.fillStyle = b.crawler ? 'rgba(236,72,153,0.08)' : 'rgba(251,191,36,0.08)';
+    else ctx.fillStyle = b.type === 'stawler' ? 'rgba(236,72,153,0.08)' : 'rgba(251,191,36,0.08)';
     ctx.fill();
 
     if (seeing) ctx.strokeStyle = 'rgba(239,68,68,0.35)';
     else if (crawlerSeeHiding) ctx.strokeStyle = 'rgba(244,114,182,0.3)';
-    else ctx.strokeStyle = b.crawler ? 'rgba(236,72,153,0.15)' : 'rgba(251,191,36,0.12)';
+    else ctx.strokeStyle = b.type === 'stawler' ? 'rgba(236,72,153,0.15)' : 'rgba(251,191,36,0.12)';
     ctx.lineWidth = 1;
 
     ctx.beginPath();

@@ -1,5 +1,6 @@
 import {
   BABY_RADIUS, PEEKABOO_MAX, PLAYER_RADIUS, T, TV_DEFS, VIEW_H, VIEW_W,
+  STAWLER_MAX_SPEED,
 } from './config';
 import { createGrid, roomCenter, roomPos, corrMid } from './map';
 import type { Game, Baby, Loot, CheesePickup, ToolPickup, TV } from './types';
@@ -61,23 +62,23 @@ export function initGame(): Game {
   }));
 
   const babies: Baby[] = [
-    { ...roomPos('lobby', -4, -2), radius: BABY_RADIUS, speed: 50, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 1.5, stunTimer: 0, crawler: false,
+    { ...roomPos('lobby', -4, -2), radius: BABY_RADIUS, speed: 35, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 1.5, stunTimer: 0, type: 'crawler', vel: 0,
       waypoints: [roomPos('lobby', -4, -2), roomPos('lobby', 4, -2)] },
-    { ...roomPos('lobby', 0, -2), radius: BABY_RADIUS, speed: 48, facing: -Math.PI / 2, wpIndex: 0, pauseTimer: 0, pauseTime: 2.0, stunTimer: 0, crawler: false,
+    { ...roomPos('lobby', 0, -2), radius: BABY_RADIUS, speed: 33, facing: -Math.PI / 2, wpIndex: 0, pauseTimer: 0, pauseTime: 2.0, stunTimer: 0, type: 'crawler', vel: 0,
       waypoints: [roomPos('lobby', 0, -2), corrMid(4), roomPos('conference', 0, -3), corrMid(4)] },
-    { ...roomCenter('copy_room'), radius: BABY_RADIUS, speed: 52, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, crawler: false,
+    { ...roomCenter('copy_room'), radius: BABY_RADIUS, speed: 38, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, type: 'crawler', vel: 0,
       waypoints: [roomCenter('copy_room'), corrMid(8), roomPos('break_room', 0, -2), corrMid(8)] },
-    { ...roomCenter('security'), radius: BABY_RADIUS, speed: 50, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, crawler: false,
+    { ...roomCenter('security'), radius: BABY_RADIUS, speed: 35, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, type: 'crawler', vel: 0,
       waypoints: [roomCenter('security'), corrMid(7), roomPos('conference', 0, -3), corrMid(7)] },
-    { ...roomPos('manager', 0, -2), radius: BABY_RADIUS, speed: 46, facing: -Math.PI / 2, wpIndex: 0, pauseTimer: 0, pauseTime: 2.2, stunTimer: 0, crawler: false,
+    { ...roomPos('manager', 0, -2), radius: BABY_RADIUS, speed: 32, facing: -Math.PI / 2, wpIndex: 0, pauseTimer: 0, pauseTime: 2.2, stunTimer: 0, type: 'crawler', vel: 0,
       waypoints: [roomPos('manager', 0, -2), corrMid(5), roomPos('break_room', 0, -2), corrMid(5)] },
-    { ...roomCenter('vault_ante'), radius: BABY_RADIUS, speed: 42, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 2.5, stunTimer: 0, crawler: false,
+    { ...roomCenter('vault_ante'), radius: BABY_RADIUS, speed: 30, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 2.5, stunTimer: 0, type: 'crawler', vel: 0,
       waypoints: [roomCenter('vault_ante'), corrMid(10), roomCenter('vault'), corrMid(11), roomCenter('safe_dep'), corrMid(11), roomCenter('vault'), corrMid(10)] },
-    { ...roomPos('conference', 0, -3), radius: BABY_RADIUS, speed: 44, facing: -Math.PI / 2, wpIndex: 0, pauseTimer: 0, pauseTime: 2.0, stunTimer: 0, crawler: true,
+    { ...roomPos('conference', 0, -3), radius: BABY_RADIUS, speed: STAWLER_MAX_SPEED, facing: -Math.PI / 2, wpIndex: 0, pauseTimer: 0, pauseTime: 2.0, stunTimer: 0, type: 'stawler', vel: 0,
       waypoints: [roomPos('conference', 0, -3), corrMid(7), roomCenter('security'), corrMid(7)], chasing: false },
-    { ...roomPos('vault', 0, -2), radius: BABY_RADIUS, speed: 46, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 2.2, stunTimer: 0, crawler: true,
+    { ...roomPos('vault', 0, -2), radius: BABY_RADIUS, speed: STAWLER_MAX_SPEED, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 2.2, stunTimer: 0, type: 'stawler', vel: 0,
       waypoints: [roomPos('vault', -4, 0), roomPos('vault', 4, 0)], chasing: false },
-    { ...roomPos('lobby', 5, -2), radius: BABY_RADIUS, speed: 48, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, crawler: true,
+    { ...roomPos('lobby', 5, -2), radius: BABY_RADIUS, speed: STAWLER_MAX_SPEED, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, type: 'stawler', vel: 0,
       waypoints: [roomPos('lobby', -5, -2), roomPos('lobby', 5, -2)], chasing: false },
   ];
 
