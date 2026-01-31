@@ -64,9 +64,19 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
     const wave = (Math.sin(time * 10) + 1) / 2;
     const size = 9 + Math.round(wave * 2);
     ctx.globalAlpha = (0.35 + 0.65 * wave) * t;
-    ctx.fillStyle = '#4ade80';
+    const stPct = p.peekStamina / PEEKABOO_MAX;
+    let r = 74, g = 222, b = 128;
+    if (p.peekExhausted) {
+      r = 239; g = 68; b = 68;
+    } else if (stPct < 0.3) {
+      const k = Math.min(1, (0.3 - stPct) / 0.3);
+      r = Math.round(74 + (239 - 74) * k);
+      g = Math.round(222 + (68 - 222) * k);
+      b = Math.round(128 + (68 - 128) * k);
+    }
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.font = `bold ${size}px monospace`;
-    ctx.shadowColor = 'rgba(74, 222, 128, 0.5)';
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
     ctx.shadowBlur = 4 + wave * 4;
     ctx.textAlign = 'center';
     ctx.fillText('peekaboo', pbx + pbw / 2, pby - 3);
