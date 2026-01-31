@@ -13,6 +13,7 @@ const state: InputState = {
 
 type KeyHandler = (e: KeyboardEvent) => void;
 let keyDownHandler: KeyHandler | null = null;
+let keyUpHandler: KeyHandler | null = null;
 
 export function initInput(canvas: HTMLCanvasElement): void {
   document.addEventListener('keydown', (e) => {
@@ -25,6 +26,7 @@ export function initInput(canvas: HTMLCanvasElement): void {
   document.addEventListener('keyup', (e) => {
     state.keys[e.key.toLowerCase()] = false;
     state.keys[e.code] = false;
+    keyUpHandler?.(e);
   });
 
   canvas.addEventListener('mousemove', (e) => {
@@ -51,6 +53,10 @@ export function mouseScreen(): { x: number; y: number } {
 
 export function onKeyDown(handler: KeyHandler): void {
   keyDownHandler = handler;
+}
+
+export function onKeyUp(handler: KeyHandler): void {
+  keyUpHandler = handler;
 }
 
 export function addClickHandler(canvas: HTMLCanvasElement, handler: (worldX: number, worldY: number) => void, camera: Camera): void {

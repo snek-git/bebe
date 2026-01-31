@@ -41,12 +41,12 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
 
     if (seeing) ctx.fillStyle = 'rgba(239,68,68,0.18)';
     else if (crawlerSeeHiding) ctx.fillStyle = 'rgba(244,114,182,0.15)';
-    else ctx.fillStyle = b.type === 'stawler' ? 'rgba(236,72,153,0.08)' : 'rgba(251,191,36,0.08)';
+    else ctx.fillStyle = b.type === 'toddler' ? 'rgba(220,38,38,0.08)' : (b.type === 'stawler' ? 'rgba(236,72,153,0.08)' : 'rgba(251,191,36,0.08)');
     ctx.fill();
 
     if (seeing) ctx.strokeStyle = 'rgba(239,68,68,0.35)';
     else if (crawlerSeeHiding) ctx.strokeStyle = 'rgba(244,114,182,0.3)';
-    else ctx.strokeStyle = b.type === 'stawler' ? 'rgba(236,72,153,0.15)' : 'rgba(251,191,36,0.12)';
+    else ctx.strokeStyle = b.type === 'toddler' ? 'rgba(220,38,38,0.15)' : (b.type === 'stawler' ? 'rgba(236,72,153,0.15)' : 'rgba(251,191,36,0.12)');
     ctx.lineWidth = 1;
 
     ctx.beginPath();

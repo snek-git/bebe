@@ -2,6 +2,8 @@ import {
   VIEW_W, VIEW_H, T, COLS, ROWS, TOTAL_LOOT, PEEKABOO_MAX,
   TOOL_TYPES,
 } from '../config';
+import { mouseScreen } from '../input';
+import { drawToolShape } from './shapes';
 import type { Game } from '../types';
 
 export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
@@ -38,7 +40,12 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   if (p.tools.length > 0) {
     const tt = TOOL_TYPES[p.tools[0]];
     ctx.fillStyle = '#c084fc'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-    ctx.fillText('[Q] ' + tt.name + (p.tools.length > 1 ? ' (+' + (p.tools.length - 1) + ')' : ''), 12, 54);
+    const hint = p.tools.length > 1 ? '  [hold Q]' : '';
+    ctx.fillText('[Q] ' + tt.name + hint, 12, 54);
+    if (p.tools.length > 1) {
+      ctx.fillStyle = 'rgba(192,132,252,0.5)'; ctx.font = '9px monospace';
+      ctx.fillText(p.tools.length + ' tools', 12, 66);
+    }
   }
 
   // Peekaboo stamina bar
@@ -120,7 +127,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.fillRect(mmX + (game.player.x / T) * mmS - 1, mmY + (game.player.y / T) * mmS - 1, 3, 3);
 
   for (const b of game.babies) {
-    ctx.fillStyle = b.stunTimer > 0 ? '#fde047' : (b.type === 'stawler' ? '#ec4899' : '#fb923c');
+    ctx.fillStyle = b.stunTimer > 0 ? '#fde047' : (b.type === 'toddler' ? '#dc2626' : (b.type === 'stawler' ? '#ec4899' : '#fb923c'));
     ctx.fillRect(mmX + (b.x / T) * mmS - 1, mmY + (b.y / T) * mmS - 1, 2, 2);
   }
 
@@ -138,6 +145,85 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
     (VIEW_W / T) * mmS,
     (VIEW_H / T) * mmS
   );
+}
+
+export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void {
+  const tools = game.player.tools;
+  if (!game.wheelOpen || tools.length < 2) return;
+
+  const cx = VIEW_W / 2, cy = VIEW_H / 2;
+  const radius = 80;
+  const n = tools.length;
+  const sectorSize = (Math.PI * 2) / n;
+
+  // Calculate hover from mouse position
+  const mouse = mouseScreen();
+  const mdx = mouse.x - cx, mdy = mouse.y - cy;
+  const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+  if (mDist > 20) {
+    const mouseAngle = Math.atan2(mdy, mdx);
+    const adjusted = ((mouseAngle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    game.wheelHover = Math.floor(adjusted / sectorSize) % n;
+  } else {
+    game.wheelHover = 0;
+  }
+
+  // Dim overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  // Center ring
+  ctx.beginPath(); ctx.arc(cx, cy, radius + 30, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(14,14,26,0.7)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(192,132,252,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Sector lines
+  ctx.strokeStyle = 'rgba(192,132,252,0.15)'; ctx.lineWidth = 1;
+  for (let i = 0; i < n; i++) {
+    const ang = i * sectorSize - Math.PI / 2 - sectorSize / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(ang) * (radius + 30), cy + Math.sin(ang) * (radius + 30));
+    ctx.stroke();
+  }
+
+  // Items
+  for (let i = 0; i < n; i++) {
+    const ang = i * sectorSize - Math.PI / 2;
+    const ix = cx + Math.cos(ang) * radius;
+    const iy = cy + Math.sin(ang) * radius;
+    const hovered = i === game.wheelHover;
+    const tt = TOOL_TYPES[tools[i]];
+
+    // Item circle background
+    const bgRadius = hovered ? 26 : 22;
+    ctx.beginPath(); ctx.arc(ix, iy, bgRadius, 0, Math.PI * 2);
+    ctx.fillStyle = hovered ? 'rgba(192,132,252,0.35)' : 'rgba(30,30,46,0.8)';
+    ctx.fill();
+    ctx.strokeStyle = hovered ? '#c084fc' : 'rgba(107,114,128,0.5)';
+    ctx.lineWidth = hovered ? 2.5 : 1;
+    ctx.stroke();
+
+    // Tool icon
+    drawToolShape(ctx, ix, iy, tools[i], hovered ? 14 : 11, game.time);
+
+    // Tool name
+    ctx.fillStyle = hovered ? '#e9d5ff' : '#9ca3af';
+    ctx.font = hovered ? 'bold 10px monospace' : '9px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(tt.name, ix, iy + bgRadius + 12);
+
+    // Active indicator (first item = current)
+    if (i === 0) {
+      ctx.fillStyle = 'rgba(192,132,252,0.6)'; ctx.font = '7px monospace';
+      ctx.fillText('active', ix, iy - bgRadius - 4);
+    }
+  }
+
+  // Center text
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '9px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SELECT', cx, cy);
 }
 
 export function renderDetectionOverlay(ctx: CanvasRenderingContext2D, game: Game): void {

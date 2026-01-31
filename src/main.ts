@@ -1,6 +1,6 @@
 import { VIEW_W, VIEW_H, CHEESE_COOLDOWN, CHEESE_SPEED, TV_DURATION, DISTRACTION_DURATION } from './config';
 import { initGame } from './state';
-import { initInput, isDown, onKeyDown, addClickHandler, addScreenClickHandler, mouseWorld } from './input';
+import { initInput, isDown, onKeyDown, onKeyUp, addClickHandler, addScreenClickHandler, mouseWorld } from './input';
 import { updatePlayer } from './update/player';
 import { updateBabies } from './update/babies';
 import { updateProjectiles } from './update/projectiles';
@@ -41,41 +41,61 @@ onKeyDown((e) => {
   }
 
   if (game.state === 'playing' && e.key.toLowerCase() === 'q' &&
-      !game.player.hiding && !game.player.looting && game.player.tools.length > 0) {
-    const tool = game.player.tools[0];
-    if (tool === 'remote') {
-      let best: typeof game.tvs[0] | null = null;
-      let bestDist = Infinity;
-      for (const tv of game.tvs) {
-        if (tv.active) continue;
-        const d = dist(game.player, tv);
-        if (d < bestDist) { best = tv; bestDist = d; }
-      }
-      if (best) {
-        game.player.tools.shift();
-        best.active = true;
-        best.timer = TV_DURATION;
-      }
-    } else if (tool === 'pacifier') {
-      game.player.tools.shift();
-      const m = mouseWorld(game.camera);
-      game.cheeses.push({
-        x: game.player.x, y: game.player.y,
-        targetX: m.x, targetY: m.y,
-        landed: false, timer: 0, dead: false, stuckBaby: null, isPacifier: true,
-      });
-    } else {
-      game.player.tools.shift();
-      game.distractions.push({
-        x: game.player.x, y: game.player.y,
-        type: tool, timer: DISTRACTION_DURATION,
-      });
-    }
+      !game.player.hiding && !game.player.looting && game.player.tools.length > 0 && game.qDownTime === 0) {
+    game.qDownTime = performance.now();
   }
 
   if (game.state === 'playing' && e.code === 'Space') {
     game.peekabooPulseTimer = PEEKABOO_PULSE_DURATION;
   }
+});
+
+function useTool(): void {
+  if (game.player.tools.length === 0 || game.player.hiding || game.player.looting) return;
+  const tool = game.player.tools[0];
+  if (tool === 'remote') {
+    let best: typeof game.tvs[0] | null = null;
+    let bestDist = Infinity;
+    for (const tv of game.tvs) {
+      if (tv.active) continue;
+      const d = dist(game.player, tv);
+      if (d < bestDist) { best = tv; bestDist = d; }
+    }
+    if (best) {
+      game.player.tools.shift();
+      best.active = true;
+      best.timer = TV_DURATION;
+    }
+  } else if (tool === 'pacifier') {
+    game.player.tools.shift();
+    const m = mouseWorld(game.camera);
+    game.cheeses.push({
+      x: game.player.x, y: game.player.y,
+      targetX: m.x, targetY: m.y,
+      landed: false, timer: 0, dead: false, stuckBaby: null, isPacifier: true,
+    });
+  } else {
+    game.player.tools.shift();
+    game.distractions.push({
+      x: game.player.x, y: game.player.y,
+      type: tool, timer: DISTRACTION_DURATION,
+    });
+  }
+}
+
+onKeyUp((e) => {
+  if (e.key.toLowerCase() !== 'q' || game.qDownTime === 0) return;
+  if (game.wheelOpen) {
+    if (game.wheelHover >= 0 && game.wheelHover < game.player.tools.length) {
+      const selected = game.player.tools.splice(game.wheelHover, 1)[0];
+      game.player.tools.unshift(selected);
+    }
+    game.wheelOpen = false;
+    game.wheelHover = -1;
+  } else if (game.state === 'playing') {
+    useTool();
+  }
+  game.qDownTime = 0;
 });
 
 addClickHandler(canvas, (worldX, worldY) => {
@@ -120,6 +140,11 @@ function update(dt: number): void {
 
   if (game.peekabooPulseTimer > 0) {
     game.peekabooPulseTimer = Math.max(0, game.peekabooPulseTimer - dt);
+  }
+
+  if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 2 &&
+      performance.now() - game.qDownTime >= 250) {
+    game.wheelOpen = true;
   }
 
   game.cheeseCooldown = Math.max(0, game.cheeseCooldown - dt);

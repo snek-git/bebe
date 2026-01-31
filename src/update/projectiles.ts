@@ -33,6 +33,11 @@ export function updateProjectiles(game: Game, dt: number): void {
       for (const b of game.babies) {
         if (b.stunTimer > 0) continue;
         if (dist(c, b) < BABY_RADIUS + 6) {
+          if (b.type === 'toddler' && !c.isPacifier) {
+            c.landed = true;
+            c.timer = 0.5;
+            continue;
+          }
           c.landed = true;
           c.timer = stunTime;
           c.stuckBaby = b;

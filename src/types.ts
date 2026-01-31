@@ -53,7 +53,7 @@ export interface Player {
   tools: ToolType[];
 }
 
-export type BabyType = 'crawler' | 'stawler';
+export type BabyType = 'crawler' | 'stawler' | 'toddler';
 
 export interface Baby {
   x: number;
@@ -70,6 +70,9 @@ export interface Baby {
   waypoints: Point[];
   chasing?: boolean;
   distracted?: boolean;
+  path?: Point[];
+  pathIndex?: number;
+  pathTimer?: number;
 }
 
 export interface Loot {
@@ -142,6 +145,9 @@ export interface Game {
   retryFadeTimer: number;
   retryPending: boolean;
   peekabooPulseTimer: number;
+  wheelOpen: boolean;
+  wheelHover: number;
+  qDownTime: number;
   time: number;
   camera: Camera;
 }

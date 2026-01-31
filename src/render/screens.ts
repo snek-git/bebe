@@ -57,7 +57,8 @@ export function renderTitle(ctx: CanvasRenderingContext2D): void {
     'WASD - Move       HOLD SPACE - Peekaboo (limited breath!)',
     'CLICK - Throw cheese    E - Grab loot    Q - Use tool', '',
     'Hide your face: they forget you exist. But watch your breath!',
-    'PINK stawlers charge at you while you hide. Cheese or run!', '',
+    'PINK stawlers charge at you while you hide. Cheese or run!',
+    'RED toddler hunts you down. Only items can stop it!', '',
     'TOOLS: iPad (drop as distraction) | Remote (turn on TV for cocomelon)',
     '       Pacifier (throw at baby, calms them longer)',
   ];

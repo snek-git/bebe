@@ -21,7 +21,12 @@ export function updatePlayer(game: Game, dt: number): void {
     if (p.peekExhausted && p.peekStamina >= PEEKABOO_MAX * 0.4) p.peekExhausted = false;
   }
 
-  if (!p.hiding && !p.looting) {
+  if (game.wheelOpen) {
+    p.vx = 0;
+    p.vy = 0;
+  }
+
+  if (!p.hiding && !p.looting && !game.wheelOpen) {
     let dx = 0, dy = 0;
     if (isDown('w') || isDown('arrowup')) dy = -1;
     if (isDown('s') || isDown('arrowdown')) dy = 1;

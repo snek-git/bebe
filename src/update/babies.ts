@@ -1,9 +1,12 @@
 import {
   BABY_RADIUS, PLAYER_RADIUS,
   STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
-  VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE,
+  TODDLER_SPEED, TODDLER_CHASE_SPEED, TODDLER_CHASE_RANGE, TODDLER_PATH_INTERVAL, TODDLER_ROAM_INTERVAL,
+  VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
 } from '../config';
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
+import { roomCenter } from '../map';
+import { findPath } from '../pathfinding';
 import type { Game, Baby, Point } from '../types';
 
 const BABY_TURN_RATE = 6.0; // radians per second
@@ -95,6 +98,7 @@ export function updateBabies(game: Game, dt: number): void {
     if (b.stunTimer > 0) {
       b.stunTimer -= dt;
       if (b.type === 'stawler') { b.chasing = false; b.vel = 0; }
+      if (b.type === 'toddler') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       b.distracted = false;
       continue;
     }
@@ -103,11 +107,17 @@ export function updateBabies(game: Game, dt: number): void {
     if (attr) {
       b.distracted = true;
       if (b.type === 'stawler') b.chasing = false;
+      if (b.type === 'toddler') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       const dx = attr.x - b.x, dy = attr.y - b.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d > 12) {
         if (b.type === 'stawler') {
           moveStawlerToward(b, attr.x, attr.y, b.speed * 0.55, dt, game.grid);
+        } else if (b.type === 'toddler') {
+          const nx = dx / d, ny = dy / d;
+          b.x += nx * b.speed * 0.7 * dt;
+          b.y += ny * b.speed * 0.7 * dt;
+          resolveWalls(game.grid, b);
         } else {
           const crawl = game.time * 8 + b.pauseTime * 10;
           const stride = 0.6 + 0.4 * Math.abs(Math.sin(crawl));
@@ -139,6 +149,72 @@ export function updateBabies(game: Game, dt: number): void {
       } else {
         b.chasing = false;
       }
+    }
+
+    if (b.type === 'toddler') {
+      b.pathTimer = (b.pathTimer ?? 0) - dt;
+
+      if (b.chasing) {
+        const pd = dist(b, p);
+        if (pd > TODDLER_CHASE_RANGE) {
+          b.chasing = false;
+          b.path = [];
+          b.pathIndex = 0;
+          b.pathTimer = 0;
+        } else {
+          if (b.pathTimer! <= 0) {
+            b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
+            b.pathIndex = 0;
+            b.pathTimer = TODDLER_PATH_INTERVAL;
+          }
+          if (b.path && b.path.length > 0 && b.pathIndex! < b.path.length) {
+            const target = b.path[b.pathIndex!];
+            const tdx = target.x - b.x, tdy = target.y - b.y;
+            const td = Math.sqrt(tdx * tdx + tdy * tdy);
+            if (td < 8) {
+              b.pathIndex = (b.pathIndex ?? 0) + 1;
+            } else {
+              b.x += (tdx / td) * TODDLER_CHASE_SPEED * dt;
+              b.y += (tdy / td) * TODDLER_CHASE_SPEED * dt;
+              resolveWalls(game.grid, b);
+              b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), turn);
+            }
+          }
+          continue;
+        }
+      }
+
+      if (!b.chasing && canBabySee(game, b) && !p.hiding) {
+        b.chasing = true;
+        b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
+        b.pathIndex = 0;
+        b.pathTimer = TODDLER_PATH_INTERVAL;
+        continue;
+      }
+
+      if (b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
+        const rooms = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor');
+        const room = rooms[Math.floor(Math.random() * rooms.length)];
+        const target = roomCenter(room.id);
+        b.path = findPath(game.grid, b.x, b.y, target.x, target.y);
+        b.pathIndex = 0;
+        b.pathTimer = TODDLER_ROAM_INTERVAL;
+      }
+
+      if (b.path && b.path.length > 0 && b.pathIndex! < b.path.length) {
+        const target = b.path[b.pathIndex!];
+        const tdx = target.x - b.x, tdy = target.y - b.y;
+        const td = Math.sqrt(tdx * tdx + tdy * tdy);
+        if (td < 8) {
+          b.pathIndex = (b.pathIndex ?? 0) + 1;
+        } else {
+          b.x += (tdx / td) * TODDLER_SPEED * dt;
+          b.y += (tdy / td) * TODDLER_SPEED * dt;
+          resolveWalls(game.grid, b);
+          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), turn);
+        }
+      }
+      continue;
     }
 
     const wp = b.waypoints[b.wpIndex];

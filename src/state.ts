@@ -1,6 +1,6 @@
 import {
   BABY_RADIUS, PEEKABOO_MAX, PLAYER_RADIUS, T, TV_DEFS, VIEW_H, VIEW_W,
-  STAWLER_MAX_SPEED,
+  STAWLER_MAX_SPEED, TODDLER_SPEED,
 } from './config';
 import { createGrid, roomCenter, roomPos, corrMid } from './map';
 import type { Game, Baby, Loot, CheesePickup, ToolPickup, TV } from './types';
@@ -80,6 +80,8 @@ export function initGame(): Game {
       waypoints: [roomPos('vault', -4, 0), roomPos('vault', 4, 0)], chasing: false },
     { ...roomPos('lobby', 5, -2), radius: BABY_RADIUS, speed: STAWLER_MAX_SPEED, facing: Math.PI, wpIndex: 0, pauseTimer: 0, pauseTime: 1.8, stunTimer: 0, type: 'stawler', vel: 0,
       waypoints: [roomPos('lobby', -5, -2), roomPos('lobby', 5, -2)], chasing: false },
+    { ...roomCenter('vault'), radius: BABY_RADIUS, speed: TODDLER_SPEED, facing: 0, wpIndex: 0, pauseTimer: 0, pauseTime: 0, stunTimer: 0, type: 'toddler', vel: 0,
+      waypoints: [], chasing: false, path: [], pathIndex: 0, pathTimer: 0 },
   ];
 
   return {
@@ -100,6 +102,9 @@ export function initGame(): Game {
     retryFadeTimer: 0,
     retryPending: false,
     peekabooPulseTimer: 0,
+    wheelOpen: false,
+    wheelHover: -1,
+    qDownTime: 0,
     time: 0,
     camera: { x: player.x - VIEW_W / 2, y: player.y - VIEW_H / 2 },
   };
