@@ -42,6 +42,17 @@ export function checkPickups(game: Game): void {
       p.tools.push(tp.type);
     }
   }
+  // Reclaim missed cheese/pacifiers from the ground
+  for (const c of game.cheeses) {
+    if (c.landed && !c.stuckBaby && dist(p, c) < T * 0.6) {
+      if (c.isPacifier) {
+        p.tools.push('pacifier');
+      } else {
+        p.cheese++;
+      }
+      c.dead = true;
+    }
+  }
 }
 
 export function checkWin(game: Game): void {

@@ -6,7 +6,7 @@ import {
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
-import { babySpritesReady, getBabyFrame } from '../sprites';
+import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
@@ -288,7 +288,12 @@ export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
     } else {
       drawCheeseShape(ctx, cpx, cpy, 7);
     }
-
+    // Pickup hint for missed cheese on the ground
+    if (c.landed && !c.stuckBaby && dist(game.player, c) < T * 1.2) {
+      crayonText(ctx, c.isPacifier ? 'grab pacifier' : 'grab cheese', cpx, cpy - 14, {
+        fill: 'rgba(253,224,71,0.8)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+      });
+    }
   }
 }
 
@@ -318,7 +323,8 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
     }
 
     // Body
-    if (useSprites) {
+    const useStawlerSprites = b.type === 'stawler' && stawlerSpritesReady();
+    if (useSprites || useStawlerSprites) {
       const moving = b.pauseTimer <= 0 && !stunned;
       let frameIndex: number;
       if (moving) {
@@ -330,7 +336,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
           ? (tick === 0 ? 3 : 2)
           : (tick === 0 ? 1 : 0);
       }
-      const img = getBabyFrame(frameIndex);
+      const img = useStawlerSprites ? getStawlerFrame(frameIndex) : getBabyFrame(frameIndex);
       const half = SPRITE_SIZE / 2;
 
       ctx.save();
@@ -338,10 +344,9 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
       ctx.rotate(b.facing + Math.PI / 2);
       if (stunned) ctx.globalAlpha = 0.5;
 
+      // Stawlers use their own sprites — no filter needed
       if (b.type === 'toddler' && !stunned) {
         ctx.filter = b.chasing ? 'hue-rotate(-40deg) saturate(1.8)' : 'hue-rotate(-30deg) saturate(1.4)';
-      } else if (b.type === 'stawler' && !stunned) {
-        ctx.filter = 'hue-rotate(280deg) saturate(1.3)';
       }
 
       ctx.drawImage(img, -half, -half, SPRITE_SIZE, SPRITE_SIZE);
