@@ -11,8 +11,14 @@ export const SK = {
   dim:        '#39646b',
 } as const;
 
-function jitter(a: number): number {
-  return (Math.random() - 0.5) * a;
+// Stable pseudo-random: deterministic per-position, no flicker
+let _seed = 0;
+function srand(): number {
+  _seed = (_seed * 16807 + 11) % 2147483647;
+  return (_seed & 0x7fffffff) / 0x7fffffff;
+}
+function sjitter(a: number): number {
+  return (srand() - 0.5) * a;
 }
 
 /**
@@ -21,20 +27,21 @@ function jitter(a: number): number {
 export function crayonGrain(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, w: number, h: number,
-  alpha = 0.06,
+  alpha = 0.07,
 ): void {
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
   ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.0;
+  ctx.lineWidth = 1.2;
   ctx.globalAlpha = alpha;
   const step = 4;
+  _seed = Math.round(x * 73 + y * 137) & 0x7fffffff;
   for (let d = -h; d < w; d += step) {
     ctx.beginPath();
-    ctx.moveTo(x + d + jitter(1.5), y + jitter(1.5));
-    ctx.lineTo(x + d + h + jitter(1.5), y + h + jitter(1.5));
+    ctx.moveTo(x + d + sjitter(1.5), y + sjitter(1.5));
+    ctx.lineTo(x + d + h + sjitter(1.5), y + h + sjitter(1.5));
     ctx.stroke();
   }
   ctx.restore();
@@ -57,7 +64,7 @@ export function crayonText(
   },
 ): void {
   const passes = opts.passes ?? 2;
-  const j = opts.jitterAmt ?? 0.4;
+  const j = opts.jitterAmt ?? 0.3;
   const prevAlpha = ctx.globalAlpha;
 
   ctx.font = opts.font;
@@ -65,27 +72,29 @@ export function crayonText(
   ctx.textBaseline = opts.baseline ?? 'alphabetic';
   ctx.fillStyle = opts.fill;
 
-  ctx.globalAlpha = prevAlpha * 0.85;
+  _seed = Math.round(x * 97 + y * 53 + text.length * 11) & 0x7fffffff;
+
+  ctx.globalAlpha = prevAlpha * 0.9;
   ctx.fillText(text, x, y);
 
   for (let p = 1; p < passes; p++) {
-    ctx.globalAlpha = prevAlpha * (0.15 + Math.random() * 0.2);
-    ctx.fillText(text, x + jitter(j), y + jitter(j));
+    ctx.globalAlpha = prevAlpha * (0.15 + srand() * 0.15);
+    ctx.fillText(text, x + sjitter(j), y + sjitter(j));
   }
 
   ctx.globalAlpha = prevAlpha;
 }
 
 /**
- * Crayon-style rectangle: multi-pass wobbly strokes + optional grain fill.
+ * Crayon-style rectangle: thick stable strokes + optional grain fill.
  */
 export function sketchyRect(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, w: number, h: number,
   opts: { fill?: string; stroke?: string; lineWidth?: number; jitterAmt?: number; grain?: boolean } = {},
 ): void {
-  const j = opts.jitterAmt ?? 1.2;
-  const lw = opts.lineWidth ?? 3.5;
+  const j = opts.jitterAmt ?? 1.0;
+  const lw = opts.lineWidth ?? 6;
 
   if (opts.fill) {
     ctx.fillStyle = opts.fill;
@@ -98,60 +107,58 @@ export function sketchyRect(
   if (opts.stroke) {
     const segsH = Math.max(2, Math.round(w / 15));
     const segsV = Math.max(2, Math.round(h / 15));
-    for (let pass = 0; pass < 2; pass++) {
-      ctx.save();
-      ctx.strokeStyle = opts.stroke;
-      ctx.lineWidth = lw + jitter(lw * 0.35);
-      ctx.globalAlpha = 0.5 + Math.random() * 0.35;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(x + jitter(j), y + jitter(j));
-      for (let s = 1; s <= segsH; s++) ctx.lineTo(x + (w * s) / segsH + jitter(j), y + jitter(j));
-      for (let s = 1; s <= segsV; s++) ctx.lineTo(x + w + jitter(j), y + (h * s) / segsV + jitter(j));
-      for (let s = 1; s <= segsH; s++) ctx.lineTo(x + w - (w * s) / segsH + jitter(j), y + h + jitter(j));
-      for (let s = 1; s <= segsV; s++) ctx.lineTo(x + jitter(j), y + h - (h * s) / segsV + jitter(j));
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-}
-
-/**
- * Crayon-style wavy line with multi-pass rendering.
- */
-export function sketchyLine(
-  ctx: CanvasRenderingContext2D,
-  x1: number, y1: number, x2: number, y2: number,
-  opts: { stroke?: string; lineWidth?: number; jitterAmt?: number } = {},
-): void {
-  const j = opts.jitterAmt ?? 0.8;
-  const lw = opts.lineWidth ?? 3.5;
-  const segs = Math.max(4, Math.round(Math.hypot(x2 - x1, y2 - y1) / 8));
-
-  for (let pass = 0; pass < 2; pass++) {
+    _seed = Math.round(x * 73 + y * 137 + w * 31) & 0x7fffffff;
     ctx.save();
-    ctx.strokeStyle = opts.stroke ?? SK.cardStroke;
-    ctx.lineWidth = lw + jitter(lw * 0.35);
-    ctx.globalAlpha = 0.5 + Math.random() * 0.35;
+    ctx.strokeStyle = opts.stroke;
+    ctx.lineWidth = lw + sjitter(lw * 0.2);
+    ctx.globalAlpha = 0.75;
+    ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x1 + jitter(j), y1 + jitter(j));
-    for (let i = 1; i <= segs; i++) {
-      const t = i / segs;
-      ctx.lineTo(
-        x1 + (x2 - x1) * t + jitter(j),
-        y1 + (y2 - y1) * t + jitter(j),
-      );
-    }
+    ctx.moveTo(x + sjitter(j), y + sjitter(j));
+    for (let s = 1; s <= segsH; s++) ctx.lineTo(x + (w * s) / segsH + sjitter(j), y + sjitter(j));
+    for (let s = 1; s <= segsV; s++) ctx.lineTo(x + w + sjitter(j), y + (h * s) / segsV + sjitter(j));
+    for (let s = 1; s <= segsH; s++) ctx.lineTo(x + w - (w * s) / segsH + sjitter(j), y + h + sjitter(j));
+    for (let s = 1; s <= segsV; s++) ctx.lineTo(x + sjitter(j), y + h - (h * s) / segsV + sjitter(j));
+    ctx.closePath();
     ctx.stroke();
     ctx.restore();
   }
 }
 
 /**
- * Crayon-style rounded rectangle with multi-pass strokes + optional grain fill.
+ * Crayon-style wavy line.
+ */
+export function sketchyLine(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number, x2: number, y2: number,
+  opts: { stroke?: string; lineWidth?: number; jitterAmt?: number } = {},
+): void {
+  const j = opts.jitterAmt ?? 0.6;
+  const lw = opts.lineWidth ?? 6;
+  const segs = Math.max(4, Math.round(Math.hypot(x2 - x1, y2 - y1) / 8));
+
+  _seed = Math.round(x1 * 97 + y1 * 53 + x2 * 31 + y2 * 71) & 0x7fffffff;
+  ctx.save();
+  ctx.strokeStyle = opts.stroke ?? SK.cardStroke;
+  ctx.lineWidth = lw + sjitter(lw * 0.2);
+  ctx.globalAlpha = 0.75;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1 + sjitter(j), y1 + sjitter(j));
+  for (let i = 1; i <= segs; i++) {
+    const t = i / segs;
+    ctx.lineTo(
+      x1 + (x2 - x1) * t + sjitter(j),
+      y1 + (y2 - y1) * t + sjitter(j),
+    );
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Crayon-style rounded rectangle with thick stable strokes + optional grain fill.
  */
 export function sketchyRoundRect(
   ctx: CanvasRenderingContext2D,
@@ -159,8 +166,8 @@ export function sketchyRoundRect(
   opts: { fill?: string; stroke?: string; lineWidth?: number; jitterAmt?: number; grain?: boolean } = {},
 ): void {
   const rr = Math.min(r, w / 2, h / 2);
-  const j = opts.jitterAmt ?? 1.0;
-  const lw = opts.lineWidth ?? 3.5;
+  const j = opts.jitterAmt ?? 0.8;
+  const lw = opts.lineWidth ?? 6;
 
   function cleanRoundPath() {
     ctx.beginPath();
@@ -190,41 +197,40 @@ export function sketchyRoundRect(
   }
 
   if (opts.stroke) {
-    for (let pass = 0; pass < 2; pass++) {
-      ctx.save();
-      ctx.strokeStyle = opts.stroke;
-      ctx.lineWidth = lw + jitter(lw * 0.35);
-      ctx.globalAlpha = 0.5 + Math.random() * 0.35;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      const jx = () => jitter(j);
-      ctx.beginPath();
-      ctx.moveTo(x + rr + jx(), y + jx());
-      ctx.lineTo(x + w - rr + jx(), y + jx());
-      ctx.quadraticCurveTo(x + w + jx(), y + jx(), x + w + jx(), y + rr + jx());
-      ctx.lineTo(x + w + jx(), y + h - rr + jx());
-      ctx.quadraticCurveTo(x + w + jx(), y + h + jx(), x + w - rr + jx(), y + h + jx());
-      ctx.lineTo(x + rr + jx(), y + h + jx());
-      ctx.quadraticCurveTo(x + jx(), y + h + jx(), x + jx(), y + h - rr + jx());
-      ctx.lineTo(x + jx(), y + rr + jx());
-      ctx.quadraticCurveTo(x + jx(), y + jx(), x + rr + jx(), y + jx());
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
-    }
+    _seed = Math.round(x * 73 + y * 137 + w * 31 + h * 17) & 0x7fffffff;
+    ctx.save();
+    ctx.strokeStyle = opts.stroke;
+    ctx.lineWidth = lw + sjitter(lw * 0.2);
+    ctx.globalAlpha = 0.75;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const jx = () => sjitter(j);
+    ctx.beginPath();
+    ctx.moveTo(x + rr + jx(), y + jx());
+    ctx.lineTo(x + w - rr + jx(), y + jx());
+    ctx.quadraticCurveTo(x + w + jx(), y + jx(), x + w + jx(), y + rr + jx());
+    ctx.lineTo(x + w + jx(), y + h - rr + jx());
+    ctx.quadraticCurveTo(x + w + jx(), y + h + jx(), x + w - rr + jx(), y + h + jx());
+    ctx.lineTo(x + rr + jx(), y + h + jx());
+    ctx.quadraticCurveTo(x + jx(), y + h + jx(), x + jx(), y + h - rr + jx());
+    ctx.lineTo(x + jx(), y + rr + jx());
+    ctx.quadraticCurveTo(x + jx(), y + jx(), x + rr + jx(), y + jx());
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
 /**
- * Crayon-style circle with multi-pass wobbly strokes.
+ * Crayon-style circle with thick stable strokes.
  */
 export function crayonCircle(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number, radius: number,
   opts: { fill?: string; stroke?: string; lineWidth?: number; jitterAmt?: number } = {},
 ): void {
-  const j = opts.jitterAmt ?? 1.0;
-  const lw = opts.lineWidth ?? 3.5;
+  const j = opts.jitterAmt ?? 0.8;
+  const lw = opts.lineWidth ?? 6;
 
   if (opts.fill) {
     ctx.beginPath();
@@ -235,24 +241,23 @@ export function crayonCircle(
 
   if (opts.stroke) {
     const points = 20;
-    for (let pass = 0; pass < 2; pass++) {
-      ctx.save();
-      ctx.strokeStyle = opts.stroke;
-      ctx.lineWidth = lw + jitter(lw * 0.35);
-      ctx.globalAlpha = 0.5 + Math.random() * 0.35;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (let i = 0; i <= points; i++) {
-        const angle = (i / points) * Math.PI * 2;
-        const r = radius + jitter(j);
-        const px = cx + Math.cos(angle) * r;
-        const py = cy + Math.sin(angle) * r;
-        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.stroke();
-      ctx.restore();
+    _seed = Math.round(cx * 73 + cy * 137 + radius * 31) & 0x7fffffff;
+    ctx.save();
+    ctx.strokeStyle = opts.stroke;
+    ctx.lineWidth = lw + sjitter(lw * 0.2);
+    ctx.globalAlpha = 0.75;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2;
+      const r = radius + sjitter(j);
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     }
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
   }
 }

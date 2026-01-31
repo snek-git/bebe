@@ -90,7 +90,6 @@ export function renderGameOver(ctx: CanvasRenderingContext2D, game: Game): void 
   sketchyRoundRect(ctx, cardX, cardY, cardW, cardH, 10, {
     fill: SK.cardFill,
     stroke: SK.cardStroke,
-    lineWidth: 3,
     jitterAmt: 0.8,
   });
 
@@ -118,7 +117,6 @@ export function renderGameOver(ctx: CanvasRenderingContext2D, game: Game): void 
     sketchyRoundRect(ctx, btn.x, btn.y + pressY, btn.w, btn.h, 8, {
       fill: SK.cardFill,
       stroke: SK.accent,
-      lineWidth: 3,
       jitterAmt: 0.6,
     });
 
@@ -147,7 +145,6 @@ export function renderWinScreen(ctx: CanvasRenderingContext2D, game: Game): void
   sketchyRoundRect(ctx, cardX, cardY, cardW, cardH, 10, {
     fill: SK.cardFill,
     stroke: SK.cardStroke,
-    lineWidth: 3,
     jitterAmt: 0.8,
   });
 
@@ -179,7 +176,6 @@ export function renderPauseScreen(ctx: CanvasRenderingContext2D): void {
   sketchyRoundRect(ctx, cardX, cardY, cardW, cardH, 10, {
     fill: SK.cardFill,
     stroke: SK.cardStroke,
-    lineWidth: 3,
     jitterAmt: 0.8,
   });
 
