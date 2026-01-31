@@ -188,11 +188,25 @@ function update(dt: number): void {
 }
 
 let lastTime = performance.now();
+let fpsFrames = 0;
+let fpsLast = performance.now();
+let fpsDisplay = 0;
+
 function loop(now: number): void {
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
+  fpsFrames++;
+  if (now - fpsLast >= 500) {
+    fpsDisplay = Math.round(fpsFrames / ((now - fpsLast) / 1000));
+    fpsFrames = 0;
+    fpsLast = now;
+  }
   update(dt);
   render(ctx, game);
+  ctx.fillStyle = '#4ade80';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(fpsDisplay + ' fps', VIEW_W - 6, 12);
   requestAnimationFrame(loop);
 }
 

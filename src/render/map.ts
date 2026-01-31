@@ -1,6 +1,6 @@
 import { T, COLS, ROWS, TOTAL_LOOT, ROOM_DEFS, VIEW_W, VIEW_H } from '../config';
 import { roomDef } from '../map';
-import { sketchyRect, crayonGrain, crayonCircle, crayonText, sketchyLine, SK } from './sketchy';
+import { sketchyRect, crayonCircle, crayonText, sketchyLine, SK } from './sketchy';
 import type { Game } from '../types';
 
 function onScreen(x: number, y: number, m: number, game: Game): boolean {
@@ -39,7 +39,6 @@ export function renderMap(ctx: CanvasRenderingContext2D, game: Game): void {
         // Wall tile
         ctx.fillStyle = '#2a3a5c';
         ctx.fillRect(px, py, T, T);
-        crayonGrain(ctx, px, py, T, T, 0.06);
         // Only stroke edge walls for performance
         if (isEdgeWall(game.grid, x, y)) {
           sketchyRect(ctx, px, py, T, T, {
@@ -55,7 +54,6 @@ export function renderMap(ctx: CanvasRenderingContext2D, game: Game): void {
         // Floor tile — warm tone with faint paper texture, no grid lines
         ctx.fillStyle = '#1e1e2e';
         ctx.fillRect(px, py, T, T);
-        crayonGrain(ctx, px, py, T, T, 0.03);
       }
     }
   }
