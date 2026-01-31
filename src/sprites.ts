@@ -35,3 +35,22 @@ export function stawlerSpritesReady(): boolean {
 export function getStawlerFrame(index: number): HTMLImageElement {
   return stawlerImages[index % STAWLER_FRAMES];
 }
+
+// ---- Tile sprites ----
+
+const floorImages: HTMLImageElement[] = [];
+let floorsLoaded = 0;
+for (let i = 1; i <= 2; i++) {
+  const img = new Image();
+  img.src = `./sprites/tiles/floor${i}.png`;
+  img.onload = () => { floorsLoaded++; };
+  floorImages.push(img);
+}
+
+export function tileSpritesReady(): boolean {
+  return floorsLoaded >= 2;
+}
+
+export function getFloorSprite(variant: number): HTMLImageElement {
+  return floorImages[variant % 2];
+}

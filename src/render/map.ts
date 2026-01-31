@@ -1,6 +1,7 @@
 import { T, COLS, ROWS, TOTAL_LOOT, ROOM_DEFS, VIEW_W, VIEW_H } from '../config';
 import { roomDef } from '../map';
 import { sketchyRect, crayonCircle, crayonText, sketchyLine, SK } from './sketchy';
+import { tileSpritesReady, getFloorSprite } from '../sprites';
 import type { Game } from '../types';
 
 function onScreen(x: number, y: number, m: number, game: Game): boolean {
@@ -11,23 +12,13 @@ function onScreen(x: number, y: number, m: number, game: Game): boolean {
 function sx(x: number, game: Game): number { return x - game.camera.x; }
 function sy(y: number, game: Game): number { return y - game.camera.y; }
 
-/** Check if a wall tile is on the edge (adjacent to a non-wall tile). */
-function isEdgeWall(grid: number[][], x: number, y: number): boolean {
-  const offsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  for (const [dx, dy] of offsets) {
-    const nx = x + dx, ny = y + dy;
-    if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
-    if (grid[ny][nx] !== 1) return true;
-  }
-  return false;
-}
-
 export function renderMap(ctx: CanvasRenderingContext2D, game: Game): void {
   const cam = game.camera;
   const x1 = Math.max(0, Math.floor(cam.x / T));
   const y1 = Math.max(0, Math.floor(cam.y / T));
   const x2 = Math.min(COLS - 1, Math.ceil((cam.x + VIEW_W) / T));
   const y2 = Math.min(ROWS - 1, Math.ceil((cam.y + VIEW_H) / T));
+  const useTileSprites = tileSpritesReady();
 
   for (let y = y1; y <= y2; y++) {
     for (let x = x1; x <= x2; x++) {
@@ -36,24 +27,22 @@ export function renderMap(ctx: CanvasRenderingContext2D, game: Game): void {
       const v = game.grid[y][x];
 
       if (v === 1) {
-        // Wall tile
         ctx.fillStyle = '#2a3a5c';
         ctx.fillRect(px, py, T, T);
-        // Only stroke edge walls for performance
-        if (isEdgeWall(game.grid, x, y)) {
-          sketchyRect(ctx, px, py, T, T, {
-            stroke: SK.cardStroke, lineWidth: 3, jitterAmt: 0.6, grain: false,
-          });
-        }
       } else if (v === 2) {
         // Furniture tile
         sketchyRect(ctx, px, py, T, T, {
           fill: '#3d2e1c', stroke: 'rgba(90,65,40,0.5)', lineWidth: 2, jitterAmt: 0.5,
         });
       } else {
-        // Floor tile — warm tone with faint paper texture, no grid lines
-        ctx.fillStyle = '#1e1e2e';
-        ctx.fillRect(px, py, T, T);
+        // Floor tile — checkerboard pattern with two sprite variants
+        if (useTileSprites) {
+          const variant = (x + y) % 2;
+          ctx.drawImage(getFloorSprite(variant), 0, 0, 128, 128, px, py, T, T);
+        } else {
+          ctx.fillStyle = '#1e1e2e';
+          ctx.fillRect(px, py, T, T);
+        }
       }
     }
   }
