@@ -9,18 +9,12 @@ export function updateDetection(game: Game, dt: number): void {
 
   for (const b of game.babies) {
     if (b.distracted) continue;
+    if (b.type === 'toddler') continue;
     if (canBabySee(game, b) && !p.hiding) {
       seen = true;
       break;
     }
     if (b.type === 'stawler' && b.chasing && !b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 8) {
-      p.hiding = false;
-      p.peekStamina = 0;
-      p.peekExhausted = true;
-      seen = true;
-      break;
-    }
-    if (b.type === 'toddler' && b.chasing && !b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 12) {
       p.hiding = false;
       p.peekStamina = 0;
       p.peekExhausted = true;

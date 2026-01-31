@@ -161,6 +161,14 @@ export function updateBabies(game: Game, dt: number): void {
 
     if (b.type === 'toddler') {
       b.pathTimer = (b.pathTimer ?? 0) - dt;
+      const toddlerTurn = BABY_TURN_RATE * 3 * dt;
+
+      // Toddler catches player = instant bust
+      if (!b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 4) {
+        game.state = 'gameover';
+        game.gameOverTimer = 0;
+        continue;
+      }
 
       if (b.chasing) {
         const pd = dist(b, p);
@@ -182,10 +190,11 @@ export function updateBabies(game: Game, dt: number): void {
             if (td < 8) {
               b.pathIndex = (b.pathIndex ?? 0) + 1;
             } else {
-              b.x += (tdx / td) * TODDLER_CHASE_SPEED * dt;
-              b.y += (tdy / td) * TODDLER_CHASE_SPEED * dt;
+              const burst = 1.0 + 0.25 * Math.sin(game.time * 14);
+              b.x += (tdx / td) * TODDLER_CHASE_SPEED * burst * dt;
+              b.y += (tdy / td) * TODDLER_CHASE_SPEED * burst * dt;
               resolveWalls(game.grid, b);
-              b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), turn);
+              b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), toddlerTurn);
             }
           }
           continue;
@@ -200,6 +209,7 @@ export function updateBabies(game: Game, dt: number): void {
         continue;
       }
 
+      // Room tracking
       const curRoom = getCurrentRoom(b.x, b.y);
       if (curRoom && curRoom !== b.roamRoom) {
         b.roamRoom = curRoom;
@@ -208,11 +218,24 @@ export function updateBabies(game: Game, dt: number): void {
         b.roomDwell = (b.roomDwell ?? 0) + dt;
       }
 
+      // Refill room queue when empty — shuffle all valid rooms
+      if (!b.roamQueue || b.roamQueue.length === 0) {
+        const pool = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor')
+          .map(r => r.id);
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        b.roamQueue = pool;
+      }
+
       const dwellExpired = (b.roomDwell ?? 0) >= TODDLER_ROOM_DWELL_MAX;
       if (dwellExpired || b.pathTimer! <= 0 || !b.path || b.path.length === 0 || b.pathIndex! >= b.path.length) {
-        const rooms = ROOM_DEFS.filter(r => r.id !== 'entrance' && r.id !== 'janitor' && r.id !== curRoom);
-        const room = rooms[Math.floor(Math.random() * rooms.length)];
-        const target = roomCenter(room.id);
+        // Pop next room from queue, skip current room
+        let nextRoom = b.roamQueue!.shift();
+        if (nextRoom === curRoom && b.roamQueue!.length > 0) nextRoom = b.roamQueue!.shift();
+        if (!nextRoom) nextRoom = 'lobby';
+        const target = roomCenter(nextRoom);
         b.path = findPath(game.grid, b.x, b.y, target.x, target.y);
         b.pathIndex = 0;
         b.pathTimer = TODDLER_ROAM_INTERVAL;
@@ -226,10 +249,16 @@ export function updateBabies(game: Game, dt: number): void {
         if (td < 8) {
           b.pathIndex = (b.pathIndex ?? 0) + 1;
         } else {
-          b.x += (tdx / td) * TODDLER_SPEED * dt;
-          b.y += (tdy / td) * TODDLER_SPEED * dt;
+          // Violent erratic movement: speed bursts + lateral jitter
+          const burst = 0.8 + 0.4 * Math.abs(Math.sin(game.time * 11 + b.y));
+          const jitter = Math.sin(game.time * 17 + b.x) * 12;
+          const nx = tdx / td, ny = tdy / td;
+          b.x += (nx * TODDLER_SPEED * burst - ny * jitter) * dt;
+          b.y += (ny * TODDLER_SPEED * burst + nx * jitter) * dt;
           resolveWalls(game.grid, b);
-          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx), turn);
+          // Frantic head scanning while roaming
+          const scanJitter = Math.sin(game.time * 9) * 0.6;
+          b.facing = rotateTowards(b.facing, Math.atan2(tdy, tdx) + scanJitter, toddlerTurn);
         }
       }
       continue;

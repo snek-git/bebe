@@ -75,6 +75,7 @@ export interface Baby {
   pathTimer?: number;
   roamRoom?: string;
   roomDwell?: number;
+  roamQueue?: string[];
 }
 
 export interface Loot {

@@ -35,7 +35,7 @@ export function findPath(grid: number[][], startX: number, startY: number, goalX
   open.push(start);
 
   let iterations = 0;
-  while (open.length > 0 && iterations < 2000) {
+  while (open.length > 0 && iterations < 4000) {
     iterations++;
 
     let bestIdx = 0;
