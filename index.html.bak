@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BEBE HEIST</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a14; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const T = 32;
+const VIEW_W = 800, VIEW_H = 576;
+canvas.width = VIEW_W; canvas.height = VIEW_H;
+
+function resize() {
+    const s = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H);
+    canvas.style.width = (VIEW_W * s) + 'px';
+    canvas.style.height = (VIEW_H * s) + 'px';
+}
+resize(); window.addEventListener('resize', resize);
+
+// ==================== CONFIG ====================
+const PLAYER_SPEED = 120, PLAYER_RADIUS = 9;
+const BABY_RADIUS = 10, VISION_RANGE = 180, VISION_ANGLE = Math.PI * 0.45;
+const DETECTION_RATE = 200, DETECTION_DECAY = 150;
+const LOOT_TIME = 0.8;
+const CHEESE_SPEED = 350, CHEESE_STUN_TIME = 3.0, CHEESE_COOLDOWN = 3.0;
+const PEEKABOO_MAX = 3.0, PEEKABOO_RECHARGE = 1.2;
+const CRAWLER_SPEED = 65, CRAWLER_APPROACH_RANGE = 160;
+const DISTRACTION_DURATION = 5.0, DISTRACTION_RANGE = 140;
+const TV_DURATION = 8.0, TV_RANGE = 180;
+const PACIFIER_CALM_TIME = 8.0;
+const COLS = 50, ROWS = 40;
+
+// ==================== ROOM DEFINITIONS ====================
+const ROOM_DEFS = [
+    { id:'entrance',   name:'ENTRANCE',      x:21, y:36, w:8,  h:3 },
+    { id:'lobby',      name:'LOBBY',          x:13, y:25, w:24, h:9,  furn:[[5,4,14,1]] },
+    { id:'teller_l',   name:'TELLER LEFT',    x:3,  y:26, w:8,  h:6,  furn:[[2,2,4,1]] },
+    { id:'teller_r',   name:'TELLER RIGHT',   x:39, y:26, w:8,  h:6,  furn:[[2,2,4,1]] },
+    { id:'break_room', name:'BREAK ROOM',     x:1,  y:14, w:11, h:9,  furn:[[4,3,3,2]] },
+    { id:'manager',    name:'MANAGER',        x:15, y:15, w:8,  h:7,  furn:[[2,3,4,1]] },
+    { id:'conference', name:'CONFERENCE',      x:26, y:14, w:12, h:9,  furn:[[3,3,6,3]] },
+    { id:'security',   name:'SECURITY',        x:41, y:14, w:8,  h:9,  furn:[[2,2,4,2]] },
+    { id:'copy_room',  name:'COPY ROOM',       x:1,  y:4,  w:8,  h:8,  furn:[[2,1,1,6],[5,1,1,6]] },
+    { id:'vault_ante', name:'VAULT ANTE',      x:12, y:3,  w:7,  h:7 },
+    { id:'vault',      name:'MAIN VAULT',      x:21, y:1,  w:14, h:10, furn:[[3,3,2,1],[9,3,2,1],[3,7,2,1],[9,7,2,1]] },
+    { id:'safe_dep',   name:'SAFE DEPOSIT',    x:38, y:1,  w:10, h:9,  furn:[[2,2,6,1],[2,5,6,1]] },
+    { id:'janitor',    name:'JANITOR',         x:12, y:0,  w:5,  h:2 },
+];
+
+// Corridors: [x, y, w, h]
+const CORRIDORS = [
+    [24,34, 3,2],  // entrance→lobby (3 wide)
+    [11,28, 2,2],  // lobby→teller_l
+    [37,28, 2,2],  // lobby→teller_r
+    [18,23, 2,2],  // lobby→manager area
+    [30,23, 2,2],  // lobby→conference area
+    [12,18, 3,2],  // break→manager
+    [23,18, 3,2],  // manager→conference
+    [38,18, 3,2],  // conference→security
+    [4,12, 2,2],   // break→copy
+    [9,7, 3,2],    // copy→vault_ante
+    [19,6, 2,2],   // vault_ante→vault
+    [35,5, 3,2],   // vault→safe_dep
+    [44,10, 2,4],  // security→safe_dep
+    [14,2, 2,1],   // janitor→vault_ante
+];
+
+// TV positions (tile coords)
+const TV_DEFS = [
+    { tx:2,  ty:14, room:'break_room' },
+    { tx:25, ty:25, room:'lobby' },
+    { tx:37, ty:17, room:'conference' },
+    { tx:44, ty:14, room:'security' },
+];
+
+const LOOT_TYPES = {
+    cash:    { name:'Cash Bundle',  color:'#4ade80', glow:'rgba(74,222,128,0.2)' },
+    gold:    { name:'Gold Bar',     color:'#fbbf24', glow:'rgba(251,191,36,0.2)' },
+    diamond: { name:'Diamond',      color:'#60a5fa', glow:'rgba(96,165,250,0.25)' },
+    key:     { name:'Golden Key',   color:'#facc15', glow:'rgba(250,204,21,0.2)' },
+    docs:    { name:'Secret Docs',  color:'#e5e7eb', glow:'rgba(229,231,235,0.2)' },
+    jewels:  { name:'Jewel Box',    color:'#c084fc', glow:'rgba(192,132,252,0.25)' },
+    coin:    { name:'Ancient Coin', color:'#fb923c', glow:'rgba(251,146,60,0.2)' },
+};
+const TOOL_TYPES = {
+    ipad:     { name:'iPad',       color:'#a1a1aa', desc:'Drop to distract babies' },
+    remote:   { name:'TV Remote',  color:'#71717a', desc:'Turn on nearest TV' },
+    pacifier: { name:'Pacifier',   color:'#f59e0b', desc:'Throw to calm a baby' },
+};
+const TOTAL_LOOT = 7;
+
+// ==================== MAP GENERATION ====================
+let grid = [];
+function roomDef(id) { return ROOM_DEFS.find(r => r.id === id); }
+function roomCenter(id) { const r = roomDef(id); return { x: (r.x + r.w / 2) * T, y: (r.y + r.h / 2) * T }; }
+function roomPos(id, dx, dy) { const c = roomCenter(id); return { x: c.x + dx * T, y: c.y + dy * T }; }
+function corrMid(idx) { const c = CORRIDORS[idx]; return { x: (c[0] + c[2] / 2) * T, y: (c[1] + c[3] / 2) * T }; }
+
+function createGrid() {
+    const g = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
+    const carve = (x, y, w, h) => { for (let yy = y; yy < y + h && yy < ROWS; yy++) for (let xx = x; xx < x + w && xx < COLS; xx++) if (yy >= 0 && xx >= 0) g[yy][xx] = 0; };
+    // Carve rooms
+    for (const r of ROOM_DEFS) carve(r.x, r.y, r.w, r.h);
+    // Carve corridors
+    for (const [x, y, w, h] of CORRIDORS) carve(x, y, w, h);
+    // Place furniture (tile type 2)
+    for (const r of ROOM_DEFS) {
+        if (!r.furn) continue;
+        for (const [fx, fy, fw, fh] of r.furn)
+            for (let yy = r.y + fy; yy < r.y + fy + fh && yy < ROWS; yy++)
+                for (let xx = r.x + fx; xx < r.x + fx + fw && xx < COLS; xx++)
+                    if (yy >= 0 && xx >= 0) g[yy][xx] = 2;
+    }
+    // Exit corridor from entrance going down
+    const er = roomDef('entrance');
+    const ex = er.x + Math.floor(er.w / 2);
+    for (let y = er.y + er.h; y < ROWS; y++) g[y][ex] = 0;
+    return g;
+}
+function isWall(tx, ty) { return tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS || grid[ty][tx] >= 1; }
+function isSolid(tx, ty) { return tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS || grid[ty][tx] === 1; }
+function isWalkable(tx, ty) { return tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS && grid[ty][tx] === 0; }
+
+// ==================== STATE ====================
+let gameState, player, babies, loots, cheeses, cheesePickups, toolPickups, distractions, tvs, detection, cheeseCooldown, gameOverTimer, time;
+const camera = { x: 0, y: 0 };
+const keys = {};
+const mouse = { x: 0, y: 0 };
+
+function initGame() {
+    grid = createGrid();
+    gameState = 'title'; detection = 0; cheeseCooldown = 0; gameOverTimer = 0; time = 0;
+
+    const start = roomCenter('entrance');
+    player = { x: start.x, y: start.y, vx: 0, vy: 0, facing: -Math.PI / 2,
+        hiding: false, looting: false, lootTimer: 0, lootTarget: null, cheese: 2, loot: 0, radius: PLAYER_RADIUS,
+        peekStamina: PEEKABOO_MAX, peekExhausted: false, tools: [] };
+
+    loots = [
+        { ...roomPos('vault', -3, 0),    type:'diamond',  collected:false },
+        { ...roomPos('vault', 3, 0),     type:'gold',     collected:false },
+        { ...roomPos('safe_dep', 0, -1), type:'jewels',   collected:false },
+        { ...roomPos('vault_ante', 0, 0),type:'docs',     collected:false },
+        { ...roomPos('manager', 0, -1),  type:'key',      collected:false },
+        { ...roomPos('teller_l', 0, 1),  type:'cash',     collected:false },
+        { ...roomPos('teller_r', 0, 1),  type:'coin',     collected:false },
+    ];
+
+    cheesePickups = [
+        { ...roomPos('copy_room', 0, 0),  collected: false },
+        { ...roomPos('security', 0, 1),   collected: false },
+        { ...roomPos('break_room', -2, 0),collected: false },
+        { ...roomPos('janitor', 0, 0),    collected: false },
+    ];
+
+    toolPickups = [
+        { ...roomPos('conference', -5, 0),  type:'ipad',     collected: false },
+        { ...roomPos('lobby', -5, -2),      type:'remote',   collected: false },
+        { ...roomPos('teller_l', 2, 1),     type:'pacifier', collected: false },
+        { ...roomPos('break_room', 2, -1),  type:'remote',   collected: false },
+        { ...roomPos('security', 0, 2),     type:'ipad',     collected: false },
+        { ...roomPos('safe_dep', -2, 0),    type:'pacifier', collected: false },
+    ];
+
+    tvs = TV_DEFS.map(td => ({ x: (td.tx + 0.5) * T, y: (td.ty + 0.5) * T, room: td.room, active: false, timer: 0 }));
+    distractions = [];
+
+    babies = [
+        // Regular patrol babies
+        { ...roomPos('lobby', -4, -2), radius:BABY_RADIUS, speed:50, facing:0, wpIndex:0, pauseTimer:0, pauseTime:1.5, stunTimer:0, crawler:false,
+          waypoints:[roomPos('lobby',-4,-2), roomPos('lobby',4,-2)] },
+        { ...roomPos('lobby', 0, -2), radius:BABY_RADIUS, speed:48, facing:-Math.PI/2, wpIndex:0, pauseTimer:0, pauseTime:2.0, stunTimer:0, crawler:false,
+          waypoints:[roomPos('lobby',0,-2), corrMid(4), roomPos('conference',0,-3), corrMid(4)] },
+        { ...roomCenter('copy_room'), radius:BABY_RADIUS, speed:52, facing:0, wpIndex:0, pauseTimer:0, pauseTime:1.8, stunTimer:0, crawler:false,
+          waypoints:[roomCenter('copy_room'), corrMid(8), roomPos('break_room',0,-2), corrMid(8)] },
+        { ...roomCenter('security'), radius:BABY_RADIUS, speed:50, facing:Math.PI, wpIndex:0, pauseTimer:0, pauseTime:1.8, stunTimer:0, crawler:false,
+          waypoints:[roomCenter('security'), corrMid(7), roomPos('conference',0,-3), corrMid(7)] },
+        { ...roomPos('manager', 0, -2), radius:BABY_RADIUS, speed:46, facing:-Math.PI/2, wpIndex:0, pauseTimer:0, pauseTime:2.2, stunTimer:0, crawler:false,
+          waypoints:[roomPos('manager',0,-2), corrMid(5), roomPos('break_room',0,-2), corrMid(5)] },
+        { ...roomCenter('vault_ante'), radius:BABY_RADIUS, speed:42, facing:0, wpIndex:0, pauseTimer:0, pauseTime:2.5, stunTimer:0, crawler:false,
+          waypoints:[roomCenter('vault_ante'), corrMid(10), roomCenter('vault'), corrMid(11), roomCenter('safe_dep'), corrMid(11), roomCenter('vault'), corrMid(10)] },
+        // Crawler babies (pink, approach when hiding)
+        { ...roomPos('conference', 0, -3), radius:BABY_RADIUS, speed:44, facing:-Math.PI/2, wpIndex:0, pauseTimer:0, pauseTime:2.0, stunTimer:0, crawler:true,
+          waypoints:[roomPos('conference',0,-3), corrMid(7), roomCenter('security'), corrMid(7)], chasing:false },
+        { ...roomPos('vault', 0, -2), radius:BABY_RADIUS, speed:46, facing:Math.PI, wpIndex:0, pauseTimer:0, pauseTime:2.2, stunTimer:0, crawler:true,
+          waypoints:[roomPos('vault', -4, 0), roomPos('vault', 4, 0)], chasing:false },
+        { ...roomPos('lobby', 5, -2), radius:BABY_RADIUS, speed:48, facing:Math.PI, wpIndex:0, pauseTimer:0, pauseTime:1.8, stunTimer:0, crawler:true,
+          waypoints:[roomPos('lobby', -5, -2), roomPos('lobby', 5, -2)], chasing:false },
+    ];
+    cheeses = [];
+    camera.x = player.x - VIEW_W / 2;
+    camera.y = player.y - VIEW_H / 2;
+}
+
+// ==================== INPUT ====================
+document.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true; keys[e.code] = true;
+    if (e.code === 'Space') e.preventDefault();
+    if (gameState === 'title' && e.code === 'Space') gameState = 'playing';
+    if ((gameState === 'gameover' || gameState === 'win') && e.key.toLowerCase() === 'r') { initGame(); gameState = 'playing'; }
+    if (gameState === 'playing' && e.key.toLowerCase() === 'q' && !player.hiding && !player.looting && player.tools.length > 0) {
+        const tool = player.tools[0];
+        if (tool === 'remote') {
+            // Find nearest TV within range
+            let best = null, bestDist = Infinity;
+            for (const tv of tvs) { if (tv.active) continue; const d = dist(player, tv); if (d < bestDist) { best = tv; bestDist = d; } }
+            if (best) { player.tools.shift(); best.active = true; best.timer = TV_DURATION; }
+        } else if (tool === 'pacifier') {
+            player.tools.shift();
+            cheeses.push({ x: player.x, y: player.y, targetX: mouse.x, targetY: mouse.y, landed: false, timer: 0, dead: false, stuckBaby: null, isPacifier: true });
+        } else {
+            player.tools.shift();
+            distractions.push({ x: player.x, y: player.y, type: tool, timer: DISTRACTION_DURATION });
+        }
+    }
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; keys[e.code] = false; });
+canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = (e.clientX - r.left) * (VIEW_W / r.width) + camera.x;
+    mouse.y = (e.clientY - r.top) * (VIEW_H / r.height) + camera.y;
+});
+canvas.addEventListener('click', e => {
+    if (gameState !== 'playing' || player.hiding || player.looting) return;
+    if (player.cheese <= 0 || cheeseCooldown > 0) return;
+    const r = canvas.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (VIEW_W / r.width) + camera.x;
+    const my = (e.clientY - r.top) * (VIEW_H / r.height) + camera.y;
+    player.cheese--; cheeseCooldown = CHEESE_COOLDOWN;
+    cheeses.push({ x: player.x, y: player.y, targetX: mx, targetY: my, landed: false, timer: 0, dead: false, stuckBaby: null });
+});
+
+// ==================== UTIL ====================
+function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
+function angleDiff(a, b) { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
+function hasLOS(x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, d = Math.sqrt(dx * dx + dy * dy), steps = Math.ceil(d / 8);
+    for (let i = 1; i < steps; i++) { const t = i / steps; if (isSolid(Math.floor((x1 + dx * t) / T), Math.floor((y1 + dy * t) / T))) return false; }
+    return true;
+}
+function resolveWalls(ent) {
+    const r = ent.radius, tileX = Math.floor(ent.x / T), tileY = Math.floor(ent.y / T);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const tx = tileX + dx, ty = tileY + dy;
+        if (isWalkable(tx, ty)) continue;
+        const l = tx * T, top = ty * T, cx = Math.max(l, Math.min(ent.x, l + T)), cy = Math.max(top, Math.min(ent.y, top + T));
+        const ex = ent.x - cx, ey = ent.y - cy, d = Math.sqrt(ex * ex + ey * ey);
+        if (d < r && d > 0) { ent.x += (ex / d) * (r - d); ent.y += (ey / d) * (r - d); }
+        else if (d === 0) { ent.x = (tileX + 0.5) * T; ent.y = (tileY + 0.5) * T; }
+    }
+}
+function updateCamera(dt) {
+    const tx = player.x - VIEW_W / 2, ty = player.y - VIEW_H / 2, sm = 8;
+    camera.x += (tx - camera.x) * sm * dt; camera.y += (ty - camera.y) * sm * dt;
+    camera.x = Math.max(0, Math.min(camera.x, COLS * T - VIEW_W));
+    camera.y = Math.max(0, Math.min(camera.y, ROWS * T - VIEW_H));
+}
+
+// ==================== UPDATE ====================
+function update(dt) {
+    if (gameState !== 'playing' && gameState !== 'gameover') return;
+    time += dt;
+    if (gameState === 'gameover') { gameOverTimer += dt; return; }
+    cheeseCooldown = Math.max(0, cheeseCooldown - dt);
+    updatePlayer(dt); updateBabies(dt); updateCheeses(dt); updateDistractions(dt); updateTVs(dt); updateDetection(dt); checkPickups(); checkWin();
+    updateCamera(dt);
+}
+function updatePlayer(dt) {
+    if (keys['Space'] && !player.looting && !player.peekExhausted && player.peekStamina > 0) {
+        player.hiding = true; player.vx = 0; player.vy = 0;
+        player.peekStamina = Math.max(0, player.peekStamina - dt);
+        if (player.peekStamina <= 0) { player.peekExhausted = true; player.hiding = false; }
+    } else {
+        player.hiding = false;
+        player.peekStamina = Math.min(PEEKABOO_MAX, player.peekStamina + dt * PEEKABOO_RECHARGE);
+        if (player.peekExhausted && player.peekStamina >= PEEKABOO_MAX * 0.4) player.peekExhausted = false;
+    }
+    if (!player.hiding && !player.looting) {
+        let dx = 0, dy = 0;
+        if (keys['w'] || keys['arrowup']) dy = -1;
+        if (keys['s'] || keys['arrowdown']) dy = 1;
+        if (keys['a'] || keys['arrowleft']) dx = -1;
+        if (keys['d'] || keys['arrowright']) dx = 1;
+        if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+        player.vx = dx * PLAYER_SPEED; player.vy = dy * PLAYER_SPEED;
+        if (dx || dy) player.facing = Math.atan2(dy, dx);
+    }
+    if (player.looting) {
+        player.lootTimer -= dt;
+        if (keys['w'] || keys['s'] || keys['a'] || keys['d'] || keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright'])
+            { player.looting = false; player.lootTarget = null; }
+        else if (player.lootTimer <= 0) { player.lootTarget.collected = true; player.loot++; player.looting = false; player.lootTarget = null; }
+    }
+    if (!player.looting && !player.hiding && keys['e']) {
+        for (const l of loots) {
+            if (!l.collected && dist(player, l) < T * 0.9) {
+                player.looting = true; player.lootTimer = LOOT_TIME; player.lootTarget = l;
+                player.vx = 0; player.vy = 0; break;
+            }
+        }
+    }
+    player.x += player.vx * dt; player.y += player.vy * dt;
+    resolveWalls(player);
+}
+function nearestAttraction(b) {
+    let best = null, bestDist = Infinity;
+    // Check dropped iPads
+    for (const d of distractions) {
+        const dd = dist(b, d);
+        if (dd < DISTRACTION_RANGE && dd < bestDist && hasLOS(b.x, b.y, d.x, d.y)) { best = d; bestDist = dd; }
+    }
+    // Check active TVs
+    for (const tv of tvs) {
+        if (!tv.active) continue;
+        const dd = dist(b, tv);
+        if (dd < TV_RANGE && dd < bestDist && hasLOS(b.x, b.y, tv.x, tv.y)) { best = tv; bestDist = dd; }
+    }
+    return best;
+}
+function updateBabies(dt) {
+    for (const b of babies) {
+        if (b.stunTimer > 0) { b.stunTimer -= dt; if (b.crawler) b.chasing = false; b.distracted = false; continue; }
+        // Distractions override everything
+        const attr = nearestAttraction(b);
+        if (attr) {
+            b.distracted = true; if (b.crawler) b.chasing = false;
+            const dx = attr.x - b.x, dy = attr.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 12) { b.x += (dx / d) * b.speed * 0.7 * dt; b.y += (dy / d) * b.speed * 0.7 * dt; resolveWalls(b); }
+            b.facing = Math.atan2(dy, dx); b.pauseTimer = 0; continue;
+        }
+        b.distracted = false;
+        // Crawler approach
+        if (b.crawler) {
+            const canSee = canBabySeePeeker(b);
+            if (canSee && player.hiding) {
+                b.chasing = true;
+                const dx = player.x - b.x, dy = player.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+                if (d > BABY_RADIUS + PLAYER_RADIUS + 2) { b.x += (dx / d) * CRAWLER_SPEED * dt; b.y += (dy / d) * CRAWLER_SPEED * dt; resolveWalls(b); }
+                b.facing = Math.atan2(dy, dx); b.pauseTimer = 0; continue;
+            } else b.chasing = false;
+        }
+        // Normal patrol
+        const wp = b.waypoints[b.wpIndex], dx = wp.x - b.x, dy = wp.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 4) {
+            b.pauseTimer += dt;
+            const nw = b.waypoints[(b.wpIndex + 1) % b.waypoints.length];
+            const toN = Math.atan2(nw.y - b.y, nw.x - b.x), ph = b.pauseTimer / b.pauseTime;
+            if (ph < 0.35) b.facing = toN;
+            else if (ph < 0.6) b.facing = toN + Math.PI / 2;
+            else if (ph < 0.85) b.facing = toN - Math.PI / 2;
+            else b.facing = toN;
+            if (b.pauseTimer >= b.pauseTime) { b.wpIndex = (b.wpIndex + 1) % b.waypoints.length; b.pauseTimer = 0; }
+        } else { b.x += (dx / d) * b.speed * dt; b.y += (dy / d) * b.speed * dt; b.facing = Math.atan2(dy, dx); b.pauseTimer = 0; resolveWalls(b); }
+    }
+}
+function updateCheeses(dt) {
+    for (const c of cheeses) {
+        if (!c.landed) {
+            const px = c.x, py = c.y;
+            const spd = c.isPacifier ? CHEESE_SPEED * 0.8 : CHEESE_SPEED;
+            const dx = c.targetX - c.x, dy = c.targetY - c.y, d = Math.sqrt(dx * dx + dy * dy), mv = spd * dt;
+            if (mv >= d) { c.x = c.targetX; c.y = c.targetY; } else { c.x += (dx / d) * mv; c.y += (dy / d) * mv; }
+            const stunTime = c.isPacifier ? PACIFIER_CALM_TIME : CHEESE_STUN_TIME;
+            if (isWall(Math.floor(c.x / T), Math.floor(c.y / T))) { c.x = px; c.y = py; c.landed = true; c.timer = stunTime; continue; }
+            for (const b of babies) { if (b.stunTimer > 0) continue; if (dist(c, b) < BABY_RADIUS + 6) { c.landed = true; c.timer = stunTime; c.stuckBaby = b; b.stunTimer = stunTime; break; } }
+            if (!c.landed && dist(c, { x: c.targetX, y: c.targetY }) < 4) { c.landed = true; c.timer = stunTime; }
+        } else {
+            c.timer -= dt; if (c.stuckBaby) { c.x = c.stuckBaby.x; c.y = c.stuckBaby.y - BABY_RADIUS - 4; }
+            if (c.timer <= 0) c.dead = true;
+        }
+    }
+    cheeses = cheeses.filter(c => !c.dead);
+}
+function canBabySee(b) {
+    if (b.stunTimer > 0) return false;
+    const dx = player.x - b.x, dy = player.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d > VISION_RANGE) return false;
+    if (Math.abs(angleDiff(Math.atan2(dy, dx), b.facing)) > VISION_ANGLE / 2) return false;
+    return hasLOS(b.x, b.y, player.x, player.y);
+}
+function canBabySeePeeker(b) {
+    if (b.stunTimer > 0) return false;
+    const dx = player.x - b.x, dy = player.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d > CRAWLER_APPROACH_RANGE) return false;
+    if (Math.abs(angleDiff(Math.atan2(dy, dx), b.facing)) > VISION_ANGLE / 2) return false;
+    return hasLOS(b.x, b.y, player.x, player.y);
+}
+function updateDetection(dt) {
+    let seen = false;
+    for (const b of babies) {
+        if (b.distracted) continue;
+        if (canBabySee(b) && !player.hiding) { seen = true; break; }
+        if (b.crawler && b.chasing && !b.stunTimer && dist(b, player) < BABY_RADIUS + PLAYER_RADIUS + 8) {
+            player.hiding = false; player.peekStamina = 0; player.peekExhausted = true;
+            seen = true; break;
+        }
+    }
+    if (seen) { detection += DETECTION_RATE * dt; if (detection >= 100) { gameState = 'gameover'; gameOverTimer = 0; } }
+    else detection = Math.max(0, detection - DETECTION_DECAY * dt);
+}
+function updateDistractions(dt) { for (const d of distractions) d.timer -= dt; distractions = distractions.filter(d => d.timer > 0); }
+function updateTVs(dt) { for (const tv of tvs) { if (tv.active) { tv.timer -= dt; if (tv.timer <= 0) tv.active = false; } } }
+function checkPickups() {
+    for (const cp of cheesePickups) { if (!cp.collected && dist(player, cp) < T * 0.6) { cp.collected = true; player.cheese++; } }
+    for (const tp of toolPickups) { if (!tp.collected && dist(player, tp) < T * 0.6) { tp.collected = true; player.tools.push(tp.type); } }
+}
+function checkWin() {
+    if (player.loot >= TOTAL_LOOT) {
+        const er = roomDef('entrance'), ex = er.x + Math.floor(er.w / 2);
+        if (Math.floor(player.x / T) === ex && player.y > (ROWS - 2) * T) gameState = 'win';
+    }
+}
+
+// ==================== RENDER ====================
+function sx(x) { return x - camera.x; }
+function sy(y) { return y - camera.y; }
+function onScreen(x, y, m) { return x > camera.x - m && x < camera.x + VIEW_W + m && y > camera.y - m && y < camera.y + VIEW_H + m; }
+
+function render() {
+    ctx.fillStyle = '#0e0e1a'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (gameState === 'title') { renderTitle(); return; }
+    renderMap(); renderExit(); renderRoomLabels(); renderTVs(); renderCheesePickups(); renderToolPickups(); renderDistractions(); renderLootItems();
+    renderVisionCones(); renderCheeses(); renderBabies(); renderPlayer();
+    renderUI(); renderDetectionOverlay();
+    if (gameState === 'gameover') renderGameOver();
+    if (gameState === 'win') renderWinScreen();
+}
+
+function renderMap() {
+    const x1 = Math.max(0, Math.floor(camera.x / T)), y1 = Math.max(0, Math.floor(camera.y / T));
+    const x2 = Math.min(COLS - 1, Math.ceil((camera.x + VIEW_W) / T));
+    const y2 = Math.min(ROWS - 1, Math.ceil((camera.y + VIEW_H) / T));
+    for (let y = y1; y <= y2; y++) for (let x = x1; x <= x2; x++) {
+        const px = x * T - camera.x, py = y * T - camera.y, v = grid[y][x];
+        if (v === 1) {
+            ctx.fillStyle = '#3a3a5c'; ctx.fillRect(px, py, T, T);
+            ctx.fillStyle = '#4e4e70'; ctx.fillRect(px, py, T, 2); ctx.fillRect(px, py, 2, T);
+            ctx.fillStyle = '#28283e'; ctx.fillRect(px, py + T - 2, T, 2); ctx.fillRect(px + T - 2, py, 2, T);
+        } else if (v === 2) {
+            // Furniture
+            ctx.fillStyle = '#2a1f14'; ctx.fillRect(px, py, T, T);
+            ctx.fillStyle = '#3d2e1c'; ctx.fillRect(px + 1, py + 1, T - 2, T - 2);
+            ctx.fillStyle = '#4a3828'; ctx.fillRect(px + 3, py + 3, T - 6, T - 6);
+        } else {
+            ctx.fillStyle = '#1e1e2e'; ctx.fillRect(px, py, T, T);
+            ctx.strokeStyle = '#262640'; ctx.lineWidth = 0.5; ctx.strokeRect(px, py, T, T);
+        }
+    }
+}
+
+function renderRoomLabels() {
+    ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    for (const r of ROOM_DEFS) {
+        const cx = (r.x + r.w / 2) * T, cy = (r.y + r.h - 0.5) * T;
+        if (onScreen(cx, cy, 100)) ctx.fillText(r.name, sx(cx), sy(cy));
+    }
+}
+
+function renderExit() {
+    const er = roomDef('entrance'), ex = (er.x + Math.floor(er.w / 2)) * T, ey = (ROWS - 1) * T;
+    if (!onScreen(ex + T / 2, ey + T / 2, T)) return;
+    const allLoot = player.loot >= TOTAL_LOOT, pulse = Math.sin(time * 4) * 0.3 + 0.7;
+    ctx.fillStyle = allLoot ? `rgba(74,222,128,${pulse * 0.3})` : 'rgba(107,114,128,0.2)';
+    ctx.fillRect(sx(ex), sy(ey), T, T);
+    ctx.strokeStyle = allLoot ? `rgba(74,222,128,${pulse})` : '#6b7280'; ctx.lineWidth = 2;
+    ctx.strokeRect(sx(ex) + 2, sy(ey) + 2, T - 4, T - 4);
+    ctx.fillStyle = allLoot ? '#4ade80' : '#6b7280'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT', sx(ex) + T / 2, sy(ey) + T / 2);
+}
+
+function renderTVs() {
+    for (const tv of tvs) {
+        if (!onScreen(tv.x, tv.y, 50)) continue;
+        const px = sx(tv.x), py = sy(tv.y);
+        // TV body
+        ctx.fillStyle = '#1a1a2e'; ctx.fillRect(px - 10, py - 8, 20, 16);
+        ctx.strokeStyle = '#374151'; ctx.lineWidth = 1.5; ctx.strokeRect(px - 10, py - 8, 20, 16);
+        if (tv.active) {
+            // Cocomelon playing! Colorful glow
+            const pulse = Math.sin(time * 8) * 0.2 + 0.8;
+            ctx.fillStyle = `rgba(74,222,128,${pulse * 0.8})`; ctx.fillRect(px - 8, py - 6, 16, 12);
+            // Color bars (cocomelon-ish)
+            const colors = ['#ef4444','#fbbf24','#4ade80','#60a5fa'];
+            for (let i = 0; i < 4; i++) { ctx.fillStyle = colors[i]; ctx.fillRect(px - 8 + i * 4, py - 6, 4, 12); }
+            ctx.globalAlpha = 0.4 + Math.sin(time * 3) * 0.2;
+            ctx.fillStyle = '#fff'; ctx.font = '6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('COCO', px, py);
+            ctx.globalAlpha = 1;
+            // Distraction range ring
+            ctx.beginPath(); ctx.arc(px, py, TV_RANGE, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(74,222,128,${Math.sin(time * 4) * 0.05 + 0.08})`; ctx.lineWidth = 1; ctx.stroke();
+            // Timer arc
+            const pct = tv.timer / TV_DURATION;
+            ctx.beginPath(); ctx.arc(px, py, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+            ctx.strokeStyle = 'rgba(74,222,128,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+        } else {
+            // Off screen
+            ctx.fillStyle = '#111'; ctx.fillRect(px - 8, py - 6, 16, 12);
+        }
+        // Stand
+        ctx.fillStyle = '#374151'; ctx.fillRect(px - 2, py + 8, 4, 3);
+    }
+}
+
+function renderCheesePickups() {
+    for (const cp of cheesePickups) {
+        if (cp.collected || !onScreen(cp.x, cp.y, 40)) continue;
+        const bob = Math.sin(time * 2 + cp.x) * 1.5, px = sx(cp.x), py = sy(cp.y + bob);
+        ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.fillStyle = 'rgba(253,224,71,0.15)'; ctx.fill();
+        ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.ellipse(px, py + 3, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(px, py - 6); ctx.lineTo(px + 6, py + 2); ctx.lineTo(px - 6, py + 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ca8a04'; ctx.beginPath(); ctx.arc(px - 1, py - 1, 1.5, 0, Math.PI * 2); ctx.fill();
+        if (dist(player, cp) < T * 1.2) { ctx.fillStyle = 'rgba(253,224,71,0.8)'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText('+1 CHEESE', px, py - 16); }
+    }
+}
+
+function renderToolPickups() {
+    for (const tp of toolPickups) {
+        if (tp.collected || !onScreen(tp.x, tp.y, 40)) continue;
+        const bob = Math.sin(time * 2.5 + tp.x + tp.y) * 1.5, px = sx(tp.x), py = sy(tp.y + bob);
+        ctx.beginPath(); ctx.arc(px, py, 13, 0, Math.PI * 2); ctx.fillStyle = 'rgba(168,85,247,0.15)'; ctx.fill();
+        drawToolShape(px, py, tp.type, 10);
+        if (dist(player, tp) < T * 1.2) {
+            const tt = TOOL_TYPES[tp.type];
+            ctx.fillStyle = 'rgba(168,85,247,0.9)'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+            ctx.fillText(tt.name, px, py - 16);
+            ctx.fillStyle = 'rgba(200,180,255,0.6)'; ctx.fillText(tt.desc, px, py - 26);
+        }
+    }
+}
+
+function renderDistractions() {
+    for (const d of distractions) {
+        if (!onScreen(d.x, d.y, 50)) continue;
+        const px = sx(d.x), py = sy(d.y), pulse = Math.sin(time * 6) * 0.2 + 0.5;
+        ctx.beginPath(); ctx.arc(px, py, DISTRACTION_RANGE, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(168,85,247,${pulse * 0.08})`; ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath(); ctx.arc(px, py, 18, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(168,85,247,${pulse * 0.3})`; ctx.fill();
+        drawToolShape(px, py, d.type, 10);
+        const pct = d.timer / DISTRACTION_DURATION;
+        ctx.beginPath(); ctx.arc(px, py, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+        ctx.strokeStyle = 'rgba(168,85,247,0.7)'; ctx.lineWidth = 2; ctx.stroke();
+        for (let i = 0; i < 3; i++) { const a = time * 3 + i * 2.094, r = 20 + Math.sin(time * 4 + i) * 5; ctx.fillStyle = `rgba(196,181,253,${pulse})`; ctx.font = '8px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('~', px + Math.cos(a) * r, py + Math.sin(a) * r); }
+    }
+}
+
+function drawToolShape(px, py, type, s) {
+    switch (type) {
+        case 'ipad':
+            ctx.fillStyle = '#52525b'; ctx.fillRect(px - s * 0.5, py - s * 0.65, s, s * 1.3);
+            ctx.fillStyle = '#a1a1aa'; ctx.fillRect(px - s * 0.38, py - s * 0.5, s * 0.76, s);
+            ctx.fillStyle = '#60a5fa'; ctx.globalAlpha = 0.5 + Math.sin(time * 4) * 0.3;
+            ctx.fillRect(px - s * 0.3, py - s * 0.4, s * 0.6, s * 0.8); ctx.globalAlpha = 1; break;
+        case 'remote':
+            ctx.fillStyle = '#3f3f46'; ctx.fillRect(px - s * 0.25, py - s * 0.6, s * 0.5, s * 1.2);
+            ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(px, py - s * 0.3, s * 0.1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#71717a'; ctx.fillRect(px - s * 0.12, py - s * 0.05, s * 0.24, s * 0.12); ctx.fillRect(px - s * 0.12, py + s * 0.15, s * 0.24, s * 0.12); break;
+        case 'pacifier':
+            ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(px, py, s * 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = s * 0.15; ctx.beginPath(); ctx.arc(px, py - s * 0.15, s * 0.55, -Math.PI * 0.8, -Math.PI * 0.2); ctx.stroke(); break;
+    }
+}
+
+function drawLootShape(px, py, type, s) {
+    switch (type) {
+        case 'cash': ctx.fillStyle = '#4ade80'; ctx.fillRect(px - s * 0.6, py - s * 0.4, s * 1.2, s * 0.8); ctx.fillStyle = '#166534'; ctx.font = `bold ${s}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', px, py + 1); break;
+        case 'gold': ctx.fillStyle = '#fbbf24'; ctx.fillRect(px - s * 0.7, py - s * 0.3, s * 1.4, s * 0.6); ctx.fillStyle = '#92400e'; ctx.fillRect(px - s * 0.5, py - s * 0.1, s, s * 0.2); break;
+        case 'diamond': ctx.fillStyle = '#60a5fa'; ctx.beginPath(); ctx.moveTo(px, py - s * 0.7); ctx.lineTo(px + s * 0.5, py); ctx.lineTo(px, py + s * 0.7); ctx.lineTo(px - s * 0.5, py); ctx.closePath(); ctx.fill(); break;
+        case 'key': ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(px - s * 0.3, py, s * 0.35, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(px, py - s * 0.12, s * 0.7, s * 0.24); ctx.fillRect(px + s * 0.5, py, s * 0.2, s * 0.3); ctx.fillStyle = '#1e1e2e'; ctx.beginPath(); ctx.arc(px - s * 0.3, py, s * 0.15, 0, Math.PI * 2); ctx.fill(); break;
+        case 'docs': ctx.fillStyle = '#e5e7eb'; ctx.fillRect(px - s * 0.4, py - s * 0.55, s * 0.8, s * 1.1); ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 0.5; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(px - s * 0.25, py - s * 0.3 + i * s * 0.25); ctx.lineTo(px + s * 0.25, py - s * 0.3 + i * s * 0.25); ctx.stroke(); } break;
+        case 'jewels': ctx.fillStyle = '#c084fc'; ctx.fillRect(px - s * 0.45, py - s * 0.35, s * 0.9, s * 0.7); ctx.fillStyle = '#a855f7'; ctx.fillRect(px - s * 0.35, py - s * 0.25, s * 0.7, s * 0.5); ctx.fillStyle = '#e9d5ff'; ctx.beginPath(); ctx.arc(px, py, s * 0.15, 0, Math.PI * 2); ctx.fill(); break;
+        case 'coin': ctx.fillStyle = '#fb923c'; ctx.beginPath(); ctx.arc(px, py, s * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#c2410c'; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = '#c2410c'; ctx.font = `bold ${s * 0.5}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('B', px, py + 1); break;
+    }
+}
+
+function renderLootItems() {
+    for (const l of loots) {
+        if (l.collected || !onScreen(l.x, l.y, 40)) continue;
+        const bob = Math.sin(time * 3 + l.x + l.y) * 1.5, lt = LOOT_TYPES[l.type], px = sx(l.x), py = sy(l.y + bob);
+        ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fillStyle = lt.glow; ctx.fill();
+        drawLootShape(px, py, l.type, 10);
+        if (gameState === 'playing' && dist(player, l) < T * 1.2) {
+            ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+            ctx.fillText(lt.name, px, py - 18);
+            if (!player.looting && dist(player, l) < T * 0.9) { ctx.fillStyle = 'rgba(255,255,200,0.7)'; ctx.fillText('[E] Grab', px, py - 28); }
+        }
+    }
+}
+
+function renderVisionCones() {
+    const RAY_COUNT = 48;
+    for (const b of babies) {
+        if (b.stunTimer > 0 || !onScreen(b.x, b.y, VISION_RANGE + 50)) continue;
+        const range = b.crawler ? CRAWLER_APPROACH_RANGE : VISION_RANGE;
+        const seeing = canBabySee(b) && !player.hiding;
+        const crawlerSeeHiding = b.crawler && canBabySeePeeker(b) && player.hiding;
+        const halfAngle = VISION_ANGLE / 2;
+        // Raycast to build actual LOS polygon
+        const pts = [];
+        for (let i = 0; i <= RAY_COUNT; i++) {
+            const ang = b.facing - halfAngle + (VISION_ANGLE * i / RAY_COUNT);
+            const cs = Math.cos(ang), sn = Math.sin(ang);
+            let hitD = range;
+            for (let d = 8; d <= range; d += 8) {
+                if (isSolid(Math.floor((b.x + cs * d) / T), Math.floor((b.y + sn * d) / T))) { hitD = d; break; }
+            }
+            pts.push({ x: b.x + cs * hitD, y: b.y + sn * hitD });
+        }
+        ctx.beginPath(); ctx.moveTo(sx(b.x), sy(b.y));
+        for (const p of pts) ctx.lineTo(sx(p.x), sy(p.y));
+        ctx.closePath();
+        if (seeing) ctx.fillStyle = 'rgba(239,68,68,0.18)';
+        else if (crawlerSeeHiding) ctx.fillStyle = 'rgba(244,114,182,0.15)';
+        else ctx.fillStyle = b.crawler ? 'rgba(236,72,153,0.08)' : 'rgba(251,191,36,0.08)';
+        ctx.fill();
+        if (seeing) ctx.strokeStyle = 'rgba(239,68,68,0.35)';
+        else if (crawlerSeeHiding) ctx.strokeStyle = 'rgba(244,114,182,0.3)';
+        else ctx.strokeStyle = b.crawler ? 'rgba(236,72,153,0.15)' : 'rgba(251,191,36,0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sx(b.x), sy(b.y));
+        for (const p of pts) ctx.lineTo(sx(p.x), sy(p.y));
+        ctx.closePath(); ctx.stroke();
+    }
+}
+
+function renderCheeses() {
+    for (const c of cheeses) {
+        if ((c.stuckBaby && c.landed) || !onScreen(c.x, c.y, 20)) continue;
+        if (c.isPacifier) drawToolShape(sx(c.x), sy(c.y), 'pacifier', 7);
+        else { ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(sx(c.x), sy(c.y) - 5); ctx.lineTo(sx(c.x) + 5, sy(c.y) + 4); ctx.lineTo(sx(c.x) - 5, sy(c.y) + 4); ctx.closePath(); ctx.fill(); }
+    }
+}
+
+function renderBabies() {
+    for (const b of babies) {
+        if (!onScreen(b.x, b.y, 40)) continue;
+        const stunned = b.stunTimer > 0, bx = sx(b.x), by = sy(b.y);
+        if (b.crawler) {
+            ctx.fillStyle = stunned ? '#e879a0' : (b.chasing ? '#f472b6' : '#ec4899');
+            ctx.beginPath(); ctx.ellipse(bx, by, BABY_RADIUS + 2, BABY_RADIUS - 2, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#f9a8d4'; ctx.lineWidth = 1.5; ctx.stroke();
+            if (!stunned) {
+                const hDist = BABY_RADIUS + 4; ctx.fillStyle = '#fbbcce'; ctx.beginPath();
+                ctx.arc(bx + Math.cos(b.facing - 0.6) * hDist, by + Math.sin(b.facing - 0.6) * hDist, 3, 0, Math.PI * 2);
+                ctx.arc(bx + Math.cos(b.facing + 0.6) * hDist, by + Math.sin(b.facing + 0.6) * hDist, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+            ctx.fillStyle = stunned ? '#f97316' : '#fb923c'; ctx.beginPath(); ctx.arc(bx, by, BABY_RADIUS, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#fdba74'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+        const eo = 4, e1x = bx + Math.cos(b.facing - 0.4) * eo, e1y = by + Math.sin(b.facing - 0.4) * eo;
+        const e2x = bx + Math.cos(b.facing + 0.4) * eo, e2y = by + Math.sin(b.facing + 0.4) * eo;
+        if (stunned) {
+            ctx.strokeStyle = b.crawler ? '#831843' : '#7c2d12'; ctx.lineWidth = 1.5;
+            for (const [ex, ey] of [[e1x, e1y], [e2x, e2y]]) { ctx.beginPath(); ctx.moveTo(ex - 2, ey - 2); ctx.lineTo(ex + 2, ey + 2); ctx.moveTo(ex + 2, ey - 2); ctx.lineTo(ex - 2, ey + 2); ctx.stroke(); }
+            const coh = cheeses.find(c => c.stuckBaby === b && c.landed);
+            if (coh) { const cx = bx + Math.cos(b.facing) * (BABY_RADIUS + 2), cy = by + Math.sin(b.facing) * (BABY_RADIUS + 2); if (coh.isPacifier) drawToolShape(cx, cy, 'pacifier', 6); else { ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(cx, cy - 4); ctx.lineTo(cx + 4, cy + 3); ctx.lineTo(cx - 4, cy + 3); ctx.closePath(); ctx.fill(); } }
+            ctx.fillStyle = '#fde047'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+            for (let i = 0; i < 3; i++) { const a = time * 5 + i * 2.094; ctx.fillText('*', bx + Math.cos(a) * 16, by + Math.sin(a) * 16 - 4); }
+        } else {
+            if (b.distracted) {
+                // Heart eyes when distracted
+                ctx.fillStyle = '#f472b6'; ctx.font = '5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('\u2665', e1x, e1y); ctx.fillText('\u2665', e2x, e2y);
+            } else {
+                ctx.fillStyle = '#1e1e2e'; ctx.beginPath(); ctx.arc(e1x, e1y, 2.5, 0, Math.PI * 2); ctx.arc(e2x, e2y, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(e1x + Math.cos(b.facing), e1y + Math.sin(b.facing), 1, 0, Math.PI * 2); ctx.arc(e2x + Math.cos(b.facing), e2y + Math.sin(b.facing), 1, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+        if (!stunned && !b.distracted && canBabySee(b) && !player.hiding) { ctx.fillStyle = '#ef4444'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText('!', bx, by - BABY_RADIUS - 6); }
+        if (b.crawler && b.chasing && !stunned) { ctx.fillStyle = '#f472b6'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText('?!', bx, by - BABY_RADIUS - 6); }
+    }
+}
+
+function renderPlayer() {
+    const p = player, bob = Math.sin(time * 8) * ((p.vx || p.vy) ? 1.5 : 0), px = sx(p.x), py = sy(p.y) + bob;
+    if (p.hiding) {
+        const stPct = p.peekStamina / PEEKABOO_MAX;
+        const flicker = stPct < 0.3 ? (Math.sin(time * 12) * 0.15 + 0.45) : 0.6;
+        ctx.globalAlpha = flicker; ctx.fillStyle = stPct < 0.3 ? '#a3e635' : '#22c55e'; ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fcd34d'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS * 0.5, -0.8, 0.8); ctx.stroke();
+        ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS * 0.5, Math.PI - 0.8, Math.PI + 0.8); ctx.stroke();
+        const ringSize = stPct < 0.3 ? (PLAYER_RADIUS + 3 + Math.sin(time * 8) * 3) : (PLAYER_RADIUS + 6 + Math.sin(time * 4) * 2);
+        ctx.strokeStyle = stPct < 0.3 ? 'rgba(239,68,68,0.4)' : 'rgba(74,222,128,0.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px, py, ringSize, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+    } else {
+        ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5; ctx.stroke();
+        const eo = 4, e1x = px + Math.cos(p.facing - 0.4) * eo, e1y = py + Math.sin(p.facing - 0.4) * eo;
+        const e2x = px + Math.cos(p.facing + 0.4) * eo, e2y = py + Math.sin(p.facing + 0.4) * eo;
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(e1x, e1y, 2.5, 0, Math.PI * 2); ctx.arc(e2x, e2y, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1e1e2e'; ctx.beginPath(); ctx.arc(e1x + Math.cos(p.facing) * 0.8, e1y + Math.sin(p.facing) * 0.8, 1.2, 0, Math.PI * 2); ctx.arc(e2x + Math.cos(p.facing) * 0.8, e2y + Math.sin(p.facing) * 0.8, 1.2, 0, Math.PI * 2); ctx.fill();
+    }
+    if (p.looting) {
+        const pct = 1 - p.lootTimer / LOOT_TIME, bw = 30, bh = 4;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(px - bw / 2, py - PLAYER_RADIUS - 14, bw, bh);
+        ctx.fillStyle = '#fbbf24'; ctx.fillRect(px - bw / 2, py - PLAYER_RADIUS - 14, bw * pct, bh);
+    }
+}
+
+function renderUI() {
+    const bw = 160, bh = 12, bx = VIEW_W / 2 - bw / 2, by = 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+    ctx.fillStyle = '#374151'; ctx.fillRect(bx, by, bw, bh);
+    if (detection > 0) { const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0); grad.addColorStop(0, '#fbbf24'); grad.addColorStop(1, '#ef4444'); ctx.fillStyle = grad; ctx.fillRect(bx, by, bw * detection / 100, bh); }
+    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, bw, bh);
+    ctx.fillStyle = detection > 50 ? '#ef4444' : '#e5e7eb'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(detection > 50 ? 'DETECTED!' : 'DETECTION', VIEW_W / 2, by + bh + 12);
+
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fde047'; ctx.font = 'bold 12px monospace';
+    ctx.fillText('CHEESE: ' + player.cheese, 12, 22);
+    if (cheeseCooldown > 0) { ctx.fillStyle = '#9ca3af'; ctx.font = '9px monospace'; ctx.fillText('(' + cheeseCooldown.toFixed(1) + 's)', 115, 22); }
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px monospace'; ctx.fillText('LOOT: ' + player.loot + '/' + TOTAL_LOOT, 12, 38);
+    if (player.tools.length > 0) {
+        const tt = TOOL_TYPES[player.tools[0]];
+        ctx.fillStyle = '#c084fc'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('[Q] ' + tt.name + (player.tools.length > 1 ? ' (+' + (player.tools.length - 1) + ')' : ''), 12, 54);
+    }
+
+    // Peekaboo stamina bar
+    const pbw = 80, pbh = 8, pbx = VIEW_W - pbw - 12, pby = 30;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(pbx - 1, pby - 1, pbw + 2, pbh + 2);
+    ctx.fillStyle = '#1e1e2e'; ctx.fillRect(pbx, pby, pbw, pbh);
+    const stPct = player.peekStamina / PEEKABOO_MAX;
+    ctx.fillStyle = player.peekExhausted ? '#ef4444' : (stPct < 0.3 ? '#f97316' : '#4ade80');
+    ctx.fillRect(pbx, pby, pbw * stPct, pbh);
+    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1; ctx.strokeRect(pbx, pby, pbw, pbh);
+    ctx.textAlign = 'right'; ctx.font = '8px monospace';
+    ctx.fillStyle = player.peekExhausted ? '#ef4444' : '#9ca3af';
+    ctx.fillText(player.peekExhausted ? 'EXHAUSTED' : 'BREATH', pbx + pbw, pby - 3);
+
+    ctx.textAlign = 'right'; ctx.font = '10px monospace';
+    if (player.hiding) { ctx.fillStyle = '#4ade80'; ctx.fillText('PEEKABOO!', VIEW_W - 12, 22); }
+    else if (player.looting) { ctx.fillStyle = '#fbbf24'; ctx.fillText('LOOTING...', VIEW_W - 12, 22); }
+
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace';
+    ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool', VIEW_W / 2, VIEW_H - 8);
+
+    if (player.loot >= TOTAL_LOOT) {
+        ctx.fillStyle = '#4ade80'; ctx.font = 'bold 11px monospace'; ctx.globalAlpha = Math.sin(time * 4) * 0.3 + 0.7;
+        ctx.fillText('ALL LOOT COLLECTED! HEAD TO THE EXIT!', VIEW_W / 2, VIEW_H - 24); ctx.globalAlpha = 1;
+    }
+
+    // Minimap
+    const mmS = 3, mmW = COLS * mmS, mmH = ROWS * mmS, mmX = VIEW_W - mmW - 8, mmY = VIEW_H - mmH - 20;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(mmX - 1, mmY - 1, mmW + 2, mmH + 2);
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+        const v = grid[y][x];
+        ctx.fillStyle = v === 1 ? '#3a3a5c' : (v === 2 ? '#2a1f14' : '#1e1e2e');
+        ctx.fillRect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
+    }
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(mmX + (player.x / T) * mmS - 1, mmY + (player.y / T) * mmS - 1, 3, 3);
+    for (const b of babies) {
+        ctx.fillStyle = b.stunTimer > 0 ? '#fde047' : (b.crawler ? '#ec4899' : '#fb923c');
+        ctx.fillRect(mmX + (b.x / T) * mmS - 1, mmY + (b.y / T) * mmS - 1, 2, 2);
+    }
+    for (const tv of tvs) { if (tv.active) { ctx.fillStyle = '#4ade80'; ctx.fillRect(mmX + (tv.x / T) * mmS - 1, mmY + (tv.y / T) * mmS - 1, 2, 2); } }
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+    ctx.strokeRect(mmX + (camera.x / T) * mmS, mmY + (camera.y / T) * mmS, (VIEW_W / T) * mmS, (VIEW_H / T) * mmS);
+}
+
+function renderDetectionOverlay() {
+    if (detection > 20) { ctx.fillStyle = `rgba(239,68,68,${((detection - 20) / 80) * 0.25})`; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
+}
+
+function renderTitle() {
+    for (let y = 0; y < 18; y++) for (let x = 0; x < 25; x++) if ((x + y) % 3 === 0) { ctx.fillStyle = 'rgba(58,58,92,0.3)'; ctx.fillRect(x * T, y * T, T, T); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 48px monospace'; ctx.fillText('BEBE HEIST', VIEW_W / 2, 120);
+    ctx.fillStyle = '#fb923c'; ctx.font = '16px monospace'; ctx.fillText('A Peekaboo Stealth Game', VIEW_W / 2, 155);
+    ctx.fillStyle = '#fb923c'; ctx.font = '36px monospace'; ctx.fillText('(o_o)', VIEW_W / 2, 220);
+    ctx.fillStyle = '#e5e7eb'; ctx.font = '11px monospace';
+    ['Rob the bank. Don\'t let the babies see your face.','They have no object permanence.','',
+     'WASD - Move       HOLD SPACE - Peekaboo (limited breath!)','CLICK - Throw cheese    E - Grab loot    Q - Use tool','',
+     'Hide your face: they forget you exist. But watch your breath!',
+     'PINK crawlers approach you while you hide. Cheese or run!','',
+     'TOOLS: iPad (drop as distraction) | Remote (turn on TV for cocomelon)',
+     '       Pacifier (throw at baby, calms them longer)',
+    ].forEach((l, i) => ctx.fillText(l, VIEW_W / 2, 270 + i * 18));
+    ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7;
+    ctx.fillStyle = '#4ade80'; ctx.font = 'bold 16px monospace'; ctx.fillText('PRESS SPACE TO START', VIEW_W / 2, VIEW_H - 30);
+    ctx.globalAlpha = 1;
+}
+
+function renderGameOver() {
+    if (gameOverTimer < 0.3) return;
+    ctx.fillStyle = `rgba(0,0,0,${Math.min(0.6, (gameOverTimer - 0.3) * 2)})`; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 48px monospace'; ctx.fillText('BUSTED!', VIEW_W / 2, VIEW_H / 2 - 40);
+    ctx.fillStyle = '#fca5a5'; ctx.font = '14px monospace'; ctx.fillText('The baby saw your face and started crying.', VIEW_W / 2, VIEW_H / 2 + 10);
+    ctx.fillStyle = '#e5e7eb'; ctx.font = '12px monospace'; ctx.fillText('Loot grabbed: ' + player.loot + '/' + TOTAL_LOOT, VIEW_W / 2, VIEW_H / 2 + 50);
+    if (gameOverTimer > 1.5) { ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7; ctx.fillStyle = '#e5e7eb'; ctx.font = 'bold 14px monospace'; ctx.fillText('PRESS R TO RETRY', VIEW_W / 2, VIEW_H / 2 + 90); ctx.globalAlpha = 1; }
+}
+
+function renderWinScreen() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#4ade80'; ctx.font = 'bold 48px monospace'; ctx.fillText('ESCAPED!', VIEW_W / 2, VIEW_H / 2 - 40);
+    ctx.fillStyle = '#86efac'; ctx.font = '14px monospace'; ctx.fillText('You robbed the baby bank and got away clean.', VIEW_W / 2, VIEW_H / 2 + 10);
+    ctx.fillStyle = '#fbbf24'; ctx.font = '12px monospace'; ctx.fillText('Cheese remaining: ' + player.cheese, VIEW_W / 2, VIEW_H / 2 + 50);
+    ctx.globalAlpha = Math.sin(Date.now() / 300) * 0.3 + 0.7; ctx.fillStyle = '#e5e7eb'; ctx.font = 'bold 14px monospace'; ctx.fillText('PRESS R TO PLAY AGAIN', VIEW_W / 2, VIEW_H / 2 + 90); ctx.globalAlpha = 1;
+}
+
+// ==================== LOOP ====================
+let lastTime = performance.now();
+function loop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.1); lastTime = now;
+    update(dt); render(); requestAnimationFrame(loop);
+}
+initGame(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
