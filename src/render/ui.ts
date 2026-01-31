@@ -546,7 +546,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
 
 export function renderToolWheel(ctx: CanvasRenderingContext2D, game: Game): void {
   const tools = game.player.tools;
-  if (!game.wheelOpen || tools.length < 2) return;
+  if (!game.wheelOpen || tools.length < 1) return;
 
   const cx = VIEW_W / 2, cy = VIEW_H / 2;
   const radius = 80;

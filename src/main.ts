@@ -167,7 +167,7 @@ function update(dt: number): void {
     game.peekabooPulseTimer = Math.max(0, game.peekabooPulseTimer - dt);
   }
 
-  if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 2 &&
+  if (game.qDownTime > 0 && !game.wheelOpen && game.player.tools.length >= 1 &&
     performance.now() - game.qDownTime >= 250) {
     game.wheelOpen = true;
   }
