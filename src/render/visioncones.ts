@@ -1,4 +1,4 @@
-import { VISION_RANGE, VISION_ANGLE, STAWLER_APPROACH_RANGE, T, VIEW_W, VIEW_H } from '../config';
+import { VISION_RANGE, CRAWLER_VISION_RANGE, VISION_ANGLE, STAWLER_APPROACH_RANGE, T, VIEW_W, VIEW_H } from '../config';
 import { isSolid, isDoorBlocking } from '../map';
 import { canBabySee, canBabySeePeeker } from '../update/babies';
 import type { Game } from '../types';
@@ -19,7 +19,9 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
     if (b.x < cam.x - VISION_RANGE - 50 || b.x > cam.x + VIEW_W + VISION_RANGE + 50 ||
         b.y < cam.y - VISION_RANGE - 50 || b.y > cam.y + VIEW_H + VISION_RANGE + 50) continue;
 
-    const range = b.type === 'stawler' ? STAWLER_APPROACH_RANGE : VISION_RANGE;
+    const range = b.type === 'stawler' ? STAWLER_APPROACH_RANGE
+      : b.type === 'crawler' ? CRAWLER_VISION_RANGE
+      : VISION_RANGE;
     const seeing = canBabySee(game, b) && !game.player.hiding;
     const crawlerSeeHiding = b.type === 'stawler' && canBabySeePeeker(game, b) && game.player.hiding;
     const halfAngle = VISION_ANGLE / 2;

@@ -2,7 +2,7 @@ import {
   BABY_RADIUS, PLAYER_RADIUS, T,
   STAWLER_MAX_SPEED, STAWLER_APPROACH_RANGE,
   BOSS_SPEED, BOSS_CHASE_SPEED, BOSS_PATH_INTERVAL, BOSS_ROAM_INTERVAL, BOSS_ROOM_DWELL_MAX,
-  VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
+  VISION_RANGE, CRAWLER_VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
   DOOR_PUSH_TIME,
 } from '../config';
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
@@ -71,7 +71,8 @@ export function canBabySee(game: Game, b: Baby): boolean {
   const p = game.player;
   const dx = p.x - b.x, dy = p.y - b.y;
   const d = Math.sqrt(dx * dx + dy * dy);
-  if (d > VISION_RANGE) return false;
+  const range = b.type === 'crawler' ? CRAWLER_VISION_RANGE : VISION_RANGE;
+  if (d > range) return false;
   if (Math.abs(angleDiff(Math.atan2(dy, dx), b.facing)) > VISION_ANGLE / 2) return false;
   // Check door blocking along LOS
   if (!hasLOSWithDoors(game, b.x, b.y, p.x, p.y)) return false;
@@ -215,6 +216,30 @@ export function updateBabies(game: Game, dt: number): void {
         b.chasing = true;
         const dx = p.x - b.x, dy = p.y - b.y;
         moveStawlerToward(b, p.x, p.y, STAWLER_MAX_SPEED, dt, game.grid);
+        b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
+        b.pauseTimer = 0;
+        continue;
+      } else {
+        b.chasing = false;
+      }
+    }
+
+    // Crawler chase: turn and crawl toward player while visible
+    if (b.type === 'crawler') {
+      const canSee = canBabySee(game, b) && !p.hiding;
+      if (canSee) {
+        b.chasing = true;
+        const dx = p.x - b.x, dy = p.y - b.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > BABY_RADIUS + PLAYER_RADIUS) {
+          const crawl = game.time * 8 + b.pauseTime * 10;
+          const stride = 0.6 + 0.4 * Math.abs(Math.sin(crawl));
+          const wobble = Math.sin(crawl * 2) * 6;
+          const nx = dx / d, ny = dy / d;
+          b.x += (nx * b.speed * stride - ny * wobble) * dt;
+          b.y += (ny * b.speed * stride + nx * wobble) * dt;
+          resolveWalls(game.grid, b);
+        }
         b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
         b.pauseTimer = 0;
         continue;

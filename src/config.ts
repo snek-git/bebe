@@ -16,6 +16,7 @@ export const SPRINT_SPEED = 200;
 export const PLAYER_RADIUS = 9;
 export const BABY_RADIUS = 10;
 export const VISION_RANGE = 180;
+export const CRAWLER_VISION_RANGE = 120;
 export const VISION_ANGLE = Math.PI * 0.45;
 export const DETECTION_RATE = 100;
 export const DETECTION_DECAY = 150;
