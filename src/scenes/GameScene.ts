@@ -5,7 +5,7 @@ import {
 } from '../config';
 import { initGame } from '../state';
 import { initInput, onKeyDown, onKeyUp, mouseWorld } from '../input';
-import { initAudio, startMusic, playCheeseThrow, playClick } from '../audio';
+import { initAudio, startMusic, playClick, playCheeseThrow } from '../audio';
 import { updatePlayer } from '../update/player';
 import { updateBabies } from '../update/babies';
 import { updateProjectiles } from '../update/projectiles';
@@ -482,7 +482,6 @@ export class GameScene extends Phaser.Scene {
         targetX: m.x, targetY: m.y,
         landed: false, timer: 0, dead: false, stuckBaby: null, isPacifier: true,
       });
-      playCheeseThrow();
     } else {
       game.player.tools.shift();
       game.distractions.push({
@@ -575,7 +574,7 @@ export class GameScene extends Phaser.Scene {
     this.syncBabySprites();
 
     // Sync Phaser camera to game camera
-    this.cameras.main.scrollX = game.camera.x;
-    this.cameras.main.scrollY = game.camera.y;
+    this.cameras.main.scrollX = Math.round(game.camera.x);
+    this.cameras.main.scrollY = Math.round(game.camera.y);
   }
 }

@@ -24,11 +24,19 @@ export class TitleScene extends Phaser.Scene {
       renderTitle(ctx);
     };
 
+    // Start music on first interaction (browsers require user gesture for audio)
+    const tryMusic = () => {
+      startMusic();
+      this.input.keyboard!.off('keydown', tryMusic);
+      this.input.off('pointerdown', tryMusic);
+    };
+    this.input.keyboard!.on('keydown', tryMusic);
+    this.input.on('pointerdown', tryMusic);
+
     // Listen for Space to start game
     this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault();
-        startMusic();
         this.scene.start('GameScene');
       }
     });

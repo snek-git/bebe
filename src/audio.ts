@@ -13,7 +13,7 @@ export function startMusic(): void {
       music.stop();
       music.destroy();
     }
-    music = _scene.sound.add('music', { loop: true, volume: 0.15 });
+    music = _scene.sound.add('music', { loop: true, volume: 0.4 });
     music.play();
     started = true;
   } catch {
@@ -43,14 +43,21 @@ export function playSfx(key: string, volume = 0.5): void {
 }
 
 export function playCheeseThrow(): void {
-  playSfx('cheese_throw', 0.7);
+  const keys = ['cheese_throw', 'cheese_hit'];
+  playSfx(keys[Math.floor(Math.random() * keys.length)], 1.0);
 }
 
 export function playCheeseHit(): void {
-  playSfx('cheese_hit', 0.8);
+  const keys = ['cheese_throw', 'cheese_hit'];
+  playSfx(keys[Math.floor(Math.random() * keys.length)], 1.0);
 }
 
 export function playClick(): void {
   const keys = ['click1', 'click2', 'click3'];
   playSfx(keys[Math.floor(Math.random() * keys.length)], 0.35);
+}
+
+export function playBabyCry(): void {
+  const keys = ['babycry1', 'babycry2', 'babycry3'];
+  playSfx(keys[Math.floor(Math.random() * keys.length)], 0.7);
 }

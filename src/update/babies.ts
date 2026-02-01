@@ -8,6 +8,7 @@ import {
 import { dist, angleDiff, hasLOS, resolveWalls } from '../utils';
 import { roomCenter, isDoorBlocking, getDoorAt } from '../map';
 import { findPath } from '../pathfinding';
+import { playBabyCry } from '../audio';
 import type { Game, Baby, Point, NoiseEvent } from '../types';
 
 const BABY_TURN_RATE = 6.0; // radians per second
@@ -202,6 +203,7 @@ export function updateBabies(game: Game, dt: number): void {
       if (dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 4) {
         game.state = 'gameover';
         game.gameOverTimer = 0;
+        playBabyCry();
         continue;
       }
     }
@@ -229,6 +231,7 @@ export function updateBabies(game: Game, dt: number): void {
       if (!b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 4) {
         game.state = 'gameover';
         game.gameOverTimer = 0;
+        playBabyCry();
         continue;
       }
 

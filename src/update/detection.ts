@@ -3,6 +3,7 @@ import {
   SNEAKER_DETECTION_MULT,
 } from '../config';
 import { canBabySee } from './babies';
+import { playBabyCry } from '../audio';
 import type { Game } from '../types';
 
 export function updateDetection(game: Game, dt: number): void {
@@ -51,5 +52,6 @@ export function updateDetection(game: Game, dt: number): void {
   if (game.detection >= 100 && game.milkFillAnim.every(t => t <= 0)) {
     game.state = 'gameover';
     game.gameOverTimer = 0;
+    playBabyCry();
   }
 }

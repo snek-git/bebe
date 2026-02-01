@@ -6,6 +6,7 @@ import {
 import { resolveWalls, dist } from '../utils';
 import { isDown } from '../input';
 import { isDoorBlocking, getDoorAt } from '../map';
+import { playClick } from '../audio';
 import type { Game, NoiseEvent, ToolType } from '../types';
 
 export function updatePlayer(game: Game, dt: number): void {
@@ -133,6 +134,7 @@ export function updatePlayer(game: Game, dt: number): void {
         p.vx = 0;
         p.vy = 0;
         acted = true;
+        playClick();
         break;
       }
     }
@@ -147,6 +149,7 @@ export function updatePlayer(game: Game, dt: number): void {
           p.vx = 0;
           p.vy = 0;
           acted = true;
+          playClick();
           break;
         }
       }
@@ -159,10 +162,12 @@ export function updatePlayer(game: Game, dt: number): void {
           if (d.state === 'closed') {
             d.state = 'open';
             acted = true;
+            playClick();
             break;
           } else if (d.state === 'open') {
             d.state = 'closed';
             acted = true;
+            playClick();
             break;
           } else if (d.state === 'locked') {
             if (d.requiredKey && p.keys.includes(d.requiredKey)) {
@@ -171,10 +176,12 @@ export function updatePlayer(game: Game, dt: number): void {
                 if (p.keys.includes('keyA') && p.keys.includes('keyB') && p.keys.includes('keyC')) {
                   d.state = 'open';
                   acted = true;
+                  playClick();
                 }
               } else {
                 d.state = 'open';
                 acted = true;
+                playClick();
               }
             }
             break;

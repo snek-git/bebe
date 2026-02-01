@@ -1,5 +1,6 @@
 import { T, VIEW_W, VIEW_H, TOTAL_LOOT } from '../config';
 import { SK, sketchyRoundRect, crayonText, crayonCircle, sketchyLine } from './sketchy';
+import { getPlayerIdle, getPlayerWalkFrame, getPlayerHide } from '../sprites';
 import type { Game } from '../types';
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -155,50 +156,31 @@ export function renderTitle(ctx: CanvasRenderingContext2D): void {
   });
   ctx.globalAlpha = 1;
 
-  // ── Mascot: animated peekaboo loop ──
+  // ── Mascot: actual player sprite with walk/hide animation ──
   const mascotY = 178;
   const bob = Math.sin(t * 2) * 2;
   const peekWave = Math.sin(t * 1.5);
   const isHiding = peekWave < -0.2;
-  const mr = 16;
   const my = mascotY + bob;
+  const spriteSize = 40;
+  const facing = Math.sin(t * 0.7) * 0.4 - Math.PI / 2;
 
+  let mascotImg: HTMLImageElement | null = null;
   if (isHiding) {
-    // Hiding: translucent body with peekaboo crescents
-    ctx.globalAlpha = 0.5 + Math.sin(t * 8) * 0.1;
-    crayonCircle(ctx, cx, my, mr, { fill: '#22c55e', stroke: '#22c55e', lineWidth: 2.5, jitterAmt: 0.5 });
-    ctx.strokeStyle = '#fcd34d'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(cx, my, mr * 0.5, -0.6, 0.6); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, my, mr * 0.5, Math.PI - 0.6, Math.PI + 0.6); ctx.stroke();
-    const ringR = mr + 5 + Math.sin(t * 5) * 3;
-    crayonCircle(ctx, cx, my, ringR, { stroke: 'rgba(74,222,128,0.35)', lineWidth: 1.5, jitterAmt: 0.5 });
-    ctx.globalAlpha = 1;
-    // Baby observers circling during peekaboo
-    for (let i = 0; i < 3; i++) {
-      const ba = t * 2 + i * (Math.PI * 2 / 3);
-      const bx = cx + Math.cos(ba) * 32;
-      const by = my + Math.sin(ba) * 14;
-      ctx.globalAlpha = 0.65;
-      ctx.fillStyle = '#fb923c';
-      ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#333'; ctx.beginPath();
-      ctx.arc(bx - 1.5, by - 1, 0.8, 0, Math.PI * 2);
-      ctx.arc(bx + 1.5, by - 1, 0.8, 0, Math.PI * 2); ctx.fill();
-      crayonText(ctx, '?', bx, by - 8, { fill: '#fcd34d', font: 'bold 8px monospace', jitterAmt: 0.2 });
-    }
-    ctx.globalAlpha = 1;
+    mascotImg = getPlayerHide();
   } else {
-    // Visible: bright body with looking-around eyes
-    crayonCircle(ctx, cx, my, mr, { fill: '#4ade80', stroke: '#22c55e', lineWidth: 3, jitterAmt: 0.5 });
-    const facing = Math.sin(t * 0.7) * 0.4;
-    const eo = 5;
-    const e1x = cx + Math.cos(facing - 0.4) * eo, e1y = my + Math.sin(facing - 0.4) * eo;
-    const e2x = cx + Math.cos(facing + 0.4) * eo, e2y = my + Math.sin(facing + 0.4) * eo;
-    crayonCircle(ctx, e1x, e1y, 2.5, { fill: '#fff', jitterAmt: 0.2 });
-    crayonCircle(ctx, e2x, e2y, 2.5, { fill: '#fff', jitterAmt: 0.2 });
-    ctx.fillStyle = '#1e1e2e'; ctx.beginPath();
-    ctx.arc(e1x + Math.cos(facing) * 0.8, e1y + Math.sin(facing) * 0.8, 1.2, 0, Math.PI * 2);
-    ctx.arc(e2x + Math.cos(facing) * 0.8, e2y + Math.sin(facing) * 0.8, 1.2, 0, Math.PI * 2); ctx.fill();
+    const frameIdx = Math.floor(t / 0.15) % 4;
+    mascotImg = getPlayerWalkFrame(frameIdx);
+  }
+
+  if (mascotImg) {
+    ctx.save();
+    ctx.translate(cx, my);
+    ctx.rotate(facing);
+    if (isHiding) ctx.globalAlpha = 0.6;
+    ctx.drawImage(mascotImg, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   // ── Two-column instruction card ──
