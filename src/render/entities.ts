@@ -1,56 +1,17 @@
 import {
-  T, BABY_RADIUS, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, STAMINA_MAX,
+  T, PLAYER_RADIUS, LOOT_TIME, SEARCH_TIME, STAMINA_MAX,
   TV_DURATION, TV_RANGE, DISTRACTION_DURATION, DISTRACTION_RANGE,
   VIEW_W, VIEW_H, LOOT_TYPES, TOOL_TYPES,
 } from '../config';
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
-import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
 function offScreen(x: number, y: number, m: number, game: Game): boolean {
   return x < game.camera.x - m || x > game.camera.x + VIEW_W + m ||
     y < game.camera.y - m || y > game.camera.y + VIEW_H + m;
-}
-
-/** Draw a wobbly crayon triangle with deterministic jitter. */
-function crayonTriangle(
-  ctx: CanvasRenderingContext2D,
-  x1: number, y1: number, x2: number, y2: number, x3: number, y3: number,
-  opts: { fill?: string; stroke?: string; lineWidth?: number },
-): void {
-  // Deterministic seed from vertex positions
-  const seed = Math.round(x1 * 73 + y1 * 137 + x2 * 31 + y2 * 53) & 0x7fffffff;
-  const sr = (s: number) => {
-    const v = Math.sin(s * 127.1 + seed * 0.0173) * 43758.5453;
-    return (v - Math.floor(v)) - 0.5;
-  };
-  const j = 1.0;
-
-  if (opts.fill) {
-    ctx.fillStyle = opts.fill;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
-    ctx.closePath(); ctx.fill();
-  }
-
-  if (opts.stroke) {
-    ctx.save();
-    ctx.strokeStyle = opts.stroke;
-    ctx.lineWidth = opts.lineWidth ?? 3;
-    ctx.globalAlpha = 0.75;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x1 + sr(1) * j, y1 + sr(2) * j);
-    ctx.lineTo(x2 + sr(3) * j, y2 + sr(4) * j);
-    ctx.lineTo(x3 + sr(5) * j, y3 + sr(6) * j);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-  }
 }
 
 export function renderTVs(ctx: CanvasRenderingContext2D, game: Game): void {
@@ -294,114 +255,6 @@ export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 }
 
-const SPRITE_SIZE = T * 2;
-const FRAME_DURATION = 0.15;
-
-export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
-  const time = game.time;
-  const useSprites = babySpritesReady();
-
-  for (const b of game.babies) {
-    if (offScreen(b.x, b.y, SPRITE_SIZE, game)) continue;
-    const stunned = b.stunTimer > 0;
-    let bx = b.x, by = b.y;
-
-    // Toddler shake
-    if (b.type === 'boss' && !stunned) {
-      if (b.chasing) {
-        bx += Math.sin(time * 45 + b.y * 7) * 3.0;
-        by += Math.cos(time * 51 + b.x * 7) * 3.0;
-      } else {
-        const sway = Math.sin(time * 6) * 4.5;
-        const perp = b.facing + Math.PI / 2;
-        bx += Math.cos(perp) * sway;
-        by += Math.sin(perp) * sway;
-      }
-    }
-
-    // Body
-    const useStawlerSprites = b.type === 'stawler' && stawlerSpritesReady();
-    if (useSprites || useStawlerSprites) {
-      const moving = b.pauseTimer <= 0 && !stunned;
-      let frameIndex: number;
-      if (moving) {
-        frameIndex = Math.floor(time / FRAME_DURATION) % 4;
-      } else {
-        const facingLeft = Math.cos(b.facing) < 0;
-        const tick = Math.floor(time / 0.4) % 2;
-        frameIndex = facingLeft
-          ? (tick === 0 ? 3 : 2)
-          : (tick === 0 ? 1 : 0);
-      }
-      const img = useStawlerSprites ? getStawlerFrame(frameIndex)
-        : getBabyFrame(frameIndex);
-      const half = SPRITE_SIZE / 2;
-
-      ctx.save();
-      ctx.translate(bx, by);
-      ctx.rotate(b.facing + Math.PI / 2);
-      if (stunned) ctx.globalAlpha = 0.5;
-
-      ctx.drawImage(img, -half, -half, SPRITE_SIZE, SPRITE_SIZE);
-      ctx.restore();
-    } else {
-      // Fallback procedural rendering — crayon style
-      const colors: Record<string, string> = { crawler: '#fb923c', stawler: '#ec4899', boss: '#dc2626' };
-      const strokeColors: Record<string, string> = { crawler: '#fdba74', stawler: '#f9a8d4', boss: '#f87171' };
-      const bodyColor = stunned ? '#888' : (colors[b.type] || '#fb923c');
-      const outlineColor = stunned ? '#aaa' : (strokeColors[b.type] || '#fdba74');
-      crayonCircle(ctx, bx, by, BABY_RADIUS, {
-        fill: bodyColor, stroke: outlineColor, lineWidth: 3, jitterAmt: 0.6,
-      });
-    }
-
-    // Stun effects
-    const indY = SPRITE_SIZE / 2 + 4;
-    if (stunned) {
-      const coh = game.cheeses.find(c => c.stuckBaby === b && c.landed);
-      if (coh) {
-        const cx = bx + Math.cos(b.facing) * (SPRITE_SIZE / 2);
-        const cy = by + Math.sin(b.facing) * (SPRITE_SIZE / 2);
-        if (coh.isPacifier) drawToolShape(ctx, cx, cy, 'pacifier', 6, time);
-        else {
-          crayonTriangle(ctx, cx, cy - 4, cx + 4, cy + 3, cx - 4, cy + 3, {
-            fill: '#fde047', stroke: '#ca8a04', lineWidth: 1.5,
-          });
-        }
-      }
-      // Stun stars — crayon text
-      for (let i = 0; i < 3; i++) {
-        const a = time * 5 + i * 2.094;
-        crayonText(ctx, '*', bx + Math.cos(a) * (indY + 6), by + Math.sin(a) * (indY + 6) - 4, {
-          fill: '#fde047', font: '8px sans-serif', align: 'center',
-        });
-      }
-    } else if (b.distracted) {
-      // Heart indicator — crayon text
-      crayonText(ctx, '\u2665', bx, by - indY, {
-        fill: '#f472b6', font: '10px sans-serif', align: 'center', baseline: 'bottom',
-      });
-    }
-
-    // Alert indicators — crayon text
-    if (!stunned && !b.distracted && canBabySee(game, b) && !game.player.hiding) {
-      crayonText(ctx, '!', bx, by - indY, {
-        fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
-      });
-    }
-    if (b.type === 'stawler' && b.chasing && !stunned) {
-      crayonText(ctx, '?!', bx, by - indY, {
-        fill: '#f472b6', font: 'bold 12px monospace', align: 'center', baseline: 'alphabetic',
-      });
-    }
-    if (b.type === 'boss' && b.chasing && !stunned) {
-      crayonText(ctx, '!!', bx, by - indY, {
-        fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
-      });
-    }
-  }
-}
-
 const OVERLAY_SPRITE_SIZE = T * 2;
 
 export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): void {
@@ -431,19 +284,24 @@ export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): v
     if (stunned) {
       const coh = game.cheeses.find(c => c.stuckBaby === b && c.landed);
       if (coh) {
-        const cx = bx + Math.cos(b.facing) * (OVERLAY_SPRITE_SIZE / 2);
-        const cy = by + Math.sin(b.facing) * (OVERLAY_SPRITE_SIZE / 2);
+        const cx = bx + Math.cos(b.facing) * (OVERLAY_SPRITE_SIZE / 4);
+        const cy = by + Math.sin(b.facing) * (OVERLAY_SPRITE_SIZE / 4);
         if (coh.isPacifier) drawToolShape(ctx, cx, cy, 'pacifier', 6, time);
         else {
-          crayonTriangle(ctx, cx, cy - 4, cx + 4, cy + 3, cx - 4, cy + 3, {
-            fill: '#fde047', stroke: '#ca8a04', lineWidth: 1.5,
+          sketchyRect(ctx, cx - 5, cy - 5, 10, 10, {
+            fill: '#fde047', stroke: '#ca8a04', lineWidth: 1.5, jitterAmt: 0.4, grain: false,
           });
         }
       }
+      // "CHEESED!" label
+      crayonText(ctx, 'CHEESED!', bx, by - indY, {
+        fill: '#fde047', font: 'bold 9px monospace', align: 'center', baseline: 'alphabetic',
+      });
       // Stun stars
       for (let i = 0; i < 3; i++) {
         const a = time * 5 + i * 2.094;
-        crayonText(ctx, '*', bx + Math.cos(a) * (indY + 6), by + Math.sin(a) * (indY + 6) - 4, {
+        const starR = OVERLAY_SPRITE_SIZE / 3;
+        crayonText(ctx, '*', bx + Math.cos(a) * starR, by + Math.sin(a) * starR - 4, {
           fill: '#fde047', font: '8px sans-serif', align: 'center',
         });
       }
@@ -465,7 +323,7 @@ export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): v
         fill: '#f472b6', font: 'bold 12px monospace', align: 'center', baseline: 'alphabetic',
       });
     }
-    if (b.type === 'boss' && b.chasing && !stunned) {
+    if (b.type === 'boss' && !stunned) {
       crayonText(ctx, '!!', bx, by - indY, {
         fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
       });

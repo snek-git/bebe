@@ -336,12 +336,6 @@ function renderHotbar(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.fillStyle = SK.dim; ctx.font = '7px monospace';
     ctx.fillText('cheese', csx + SLOT_SIZE / 2, barY + SLOT_SIZE - 5);
   }
-  if (game.cheeseCooldown > 0) {
-    const cdPct = game.cheeseCooldown / 3.0;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(csx, barY, SLOT_SIZE, SLOT_SIZE * cdPct);
-  }
-
   // Tool slot
   if (hasTools) {
     const toolX = barX + SLOT_SIZE + SLOT_GAP + 5;
