@@ -179,7 +179,7 @@ export function updateBabies(game: Game, dt: number): void {
       b.lastSeenY = undefined;
       const dx = attr.x - b.x, dy = attr.y - b.y;
       const d = Math.sqrt(dx * dx + dy * dy);
-      if (d > 12) {
+      if (d > 40) {
         if (b.type === 'stawler') {
           moveStawlerToward(b, attr.x, attr.y, b.speed * 0.55, dt, game.grid);
         } else if (b.type === 'boss') {

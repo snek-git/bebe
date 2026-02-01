@@ -114,8 +114,8 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   sketchyRect(ctx, pbx, pby, pbw, pbh, { stroke: SK.accent, lineWidth: 2.5, jitterAmt: 0.5, grain: false });
 
   // Controls help
-  ctx.textAlign = 'center'; ctx.fillStyle = SK.dim; ctx.font = '10px monospace';
-  ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Loot | Q: Use Tool | R: Restart', VIEW_W / 2, VIEW_H - 8);
+  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(200,215,220,0.7)'; ctx.font = 'bold 11px monospace';
+  ctx.fillText('WASD: Move | SPACE: Peekaboo | CLICK: Cheese | E: Interact | Q: Tool | R: Restart', VIEW_W / 2, VIEW_H - 8);
 
   // Prize collected message (above hotbar)
   if (p.loot >= TOTAL_LOOT) {

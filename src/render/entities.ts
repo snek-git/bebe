@@ -75,7 +75,7 @@ export function renderCheesePickups(ctx: CanvasRenderingContext2D, game: Game): 
     drawCheeseShape(ctx, px, py, 10);
     if (dist(game.player, cp) < T * 1.2) {
       crayonText(ctx, '+1 CHEESE', px, py - 16, {
-        fill: 'rgba(253,224,71,0.8)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+        fill: 'rgba(253,224,71,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
       });
     }
   }
@@ -93,10 +93,10 @@ export function renderToolPickups(ctx: CanvasRenderingContext2D, game: Game): vo
     if (dist(game.player, tp) < T * 1.2) {
       const tt = TOOL_TYPES[tp.type];
       crayonText(ctx, tt.name, px, py - 16, {
-        fill: 'rgba(168,85,247,0.9)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+        fill: 'rgba(168,85,247,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
       });
-      crayonText(ctx, tt.desc, px, py - 26, {
-        fill: 'rgba(200,180,255,0.6)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+      crayonText(ctx, tt.desc, px, py - 28, {
+        fill: 'rgba(200,180,255,0.9)', font: '11px monospace', align: 'center', baseline: 'alphabetic',
       });
     }
   }
@@ -140,11 +140,11 @@ export function renderLootItems(ctx: CanvasRenderingContext2D, game: Game): void
     drawLootShape(ctx, px, py, l.type, 10);
     if (game.state === 'playing' && dist(game.player, l) < T * 1.2) {
       crayonText(ctx, 'GOLDEN BEBE', px, py - 18, {
-        fill: 'rgba(255,255,255,0.9)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+        fill: 'rgba(255,255,255,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
       });
       if (!game.player.looting && dist(game.player, l) < T * 0.9) {
-        crayonText(ctx, '[E] Grab', px, py - 28, {
-          fill: 'rgba(255,255,200,0.7)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+        crayonText(ctx, '[E] Grab', px, py - 30, {
+          fill: 'rgba(255,255,200,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
         });
       }
     }
@@ -175,7 +175,7 @@ export function renderContainers(ctx: CanvasRenderingContext2D, game: Game): voi
 
       if (dist(game.player, c) < T * 1.2) {
         crayonText(ctx, '[E] Search', px, py - 14, {
-          fill: 'rgba(251,191,36,0.8)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+          fill: 'rgba(251,191,36,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
         });
       }
     }
@@ -203,7 +203,7 @@ export function renderKeyPickups(ctx: CanvasRenderingContext2D, game: Game): voi
 
     if (dist(game.player, k) < T * 1.2) {
       crayonText(ctx, 'KEY ' + k.type.replace('key', ''), px, py - 16, {
-        fill: 'rgba(250,204,21,0.9)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+        fill: 'rgba(250,204,21,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
       });
     }
   }
@@ -251,7 +251,7 @@ export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
     // Pickup hint for missed cheese on the ground
     if (c.landed && !c.stuckBaby && dist(game.player, c) < T * 1.2) {
       crayonText(ctx, c.isPacifier ? 'grab pacifier' : 'grab cheese', cpx, cpy - 14, {
-        fill: 'rgba(253,224,71,0.8)', font: '9px monospace', align: 'center', baseline: 'alphabetic',
+        fill: 'rgba(253,224,71,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
       });
     }
   }
@@ -403,7 +403,7 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.fillStyle = '#fbbf24'; ctx.fillRect(bx, by, bw * pct, bh);
     sketchyRect(ctx, bx, by, bw, bh, { stroke: 'rgba(251,191,36,0.5)', lineWidth: 2, jitterAmt: 0.4, grain: false });
     crayonText(ctx, 'grab', px, by - 3, {
-      fill: 'rgba(251,191,36,0.8)', font: 'bold 7px monospace', align: 'center', baseline: 'alphabetic', jitterAmt: 0.2,
+      fill: 'rgba(251,191,36,1)', font: 'bold 9px monospace', align: 'center', baseline: 'alphabetic', jitterAmt: 0.2,
     });
   }
 
@@ -415,7 +415,7 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
     ctx.fillStyle = '#a78bfa'; ctx.fillRect(bx, by, bw * pct, bh);
     sketchyRect(ctx, bx, by, bw, bh, { stroke: 'rgba(167,139,250,0.5)', lineWidth: 2, jitterAmt: 0.4, grain: false });
     crayonText(ctx, 'search', px, by - 3, {
-      fill: 'rgba(167,139,250,0.8)', font: 'bold 7px monospace', align: 'center', baseline: 'alphabetic', jitterAmt: 0.2,
+      fill: 'rgba(167,139,250,1)', font: 'bold 9px monospace', align: 'center', baseline: 'alphabetic', jitterAmt: 0.2,
     });
   }
 }

@@ -1,5 +1,6 @@
 import { T, ROWS, TOTAL_LOOT, ROOM_DEFS, VIEW_W, VIEW_H } from '../config';
 import { roomDef } from '../map';
+import { dist } from '../utils';
 import { sketchyRect, crayonCircle, crayonText, sketchyLine, SK } from './sketchy';
 import type { Game } from '../types';
 
@@ -48,6 +49,22 @@ export function renderDoors(ctx: CanvasRenderingContext2D, game: Game): void {
       if (d.requiredKey) {
         crayonText(ctx, d.requiredKey.replace('key', ''), px + T / 2, py + T - 4, {
           fill: 'rgba(255,255,255,0.5)', font: '7px monospace', align: 'center', baseline: 'middle',
+        });
+      }
+    }
+
+    // Prompt when player is close
+    if (game.state === 'playing' && dist(game.player, d) < T * 1.2) {
+      let label: string | null = null;
+      if (d.state === 'closed') label = '[E] Open';
+      else if (d.state === 'open') label = '[E] Close';
+      else if (d.state === 'locked') {
+        const hasKey = d.requiredKey && game.player.keys.includes(d.requiredKey);
+        label = hasKey ? '[E] Unlock' : 'Locked';
+      }
+      if (label) {
+        crayonText(ctx, label, d.x, d.y - T / 2 - 6, {
+          fill: 'rgba(255,255,200,1)', font: 'bold 11px monospace', align: 'center', baseline: 'alphabetic',
         });
       }
     }

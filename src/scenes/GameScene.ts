@@ -357,7 +357,7 @@ export class GameScene extends Phaser.Scene {
       sprite.setRotation(b.facing + Math.PI / 2);
 
       // Frame selection
-      const moving = b.pauseTimer <= 0 && !stunned;
+      const moving = b.pauseTimer <= 0 && !stunned && !b.distracted;
       let frameIndex: number;
       if (moving) {
         frameIndex = Math.floor(time / FRAME_DURATION) % 4;
