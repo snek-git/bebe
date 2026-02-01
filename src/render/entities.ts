@@ -10,13 +10,10 @@ import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame, b
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
-function onScreen(x: number, y: number, m: number, game: Game): boolean {
-  return x > game.camera.x - m && x < game.camera.x + VIEW_W + m &&
-    y > game.camera.y - m && y < game.camera.y + VIEW_H + m;
+function offScreen(x: number, y: number, m: number, game: Game): boolean {
+  return x < game.camera.x - m || x > game.camera.x + VIEW_W + m ||
+    y < game.camera.y - m || y > game.camera.y + VIEW_H + m;
 }
-
-function sx(x: number, game: Game): number { return x - game.camera.x; }
-function sy(y: number, game: Game): number { return y - game.camera.y; }
 
 /** Draw a wobbly crayon triangle with deterministic jitter. */
 function crayonTriangle(
@@ -59,8 +56,8 @@ function crayonTriangle(
 export function renderTVs(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const tv of game.tvs) {
-    if (!onScreen(tv.x, tv.y, 50, game)) continue;
-    const px = sx(tv.x, game), py = sy(tv.y, game);
+    if (offScreen(tv.x, tv.y, 50, game)) continue;
+    const px = tv.x, py = tv.y;
 
     // TV body
     sketchyRect(ctx, px - 10, py - 8, 20, 16, {
@@ -103,9 +100,9 @@ export function renderTVs(ctx: CanvasRenderingContext2D, game: Game): void {
 export function renderCheesePickups(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const cp of game.cheesePickups) {
-    if (cp.collected || !onScreen(cp.x, cp.y, 40, game)) continue;
+    if (cp.collected || offScreen(cp.x, cp.y, 40, game)) continue;
     const bob = Math.sin(time * 2 + cp.x) * 1.5;
-    const px = sx(cp.x, game), py = sy(cp.y + bob, game);
+    const px = cp.x, py = cp.y + bob;
     // Glow
     crayonCircle(ctx, px, py, 12, { fill: 'rgba(253,224,71,0.15)', jitterAmt: 0.5 });
     // Shadow
@@ -124,9 +121,9 @@ export function renderCheesePickups(ctx: CanvasRenderingContext2D, game: Game): 
 export function renderToolPickups(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const tp of game.toolPickups) {
-    if (tp.collected || !onScreen(tp.x, tp.y, 40, game)) continue;
+    if (tp.collected || offScreen(tp.x, tp.y, 40, game)) continue;
     const bob = Math.sin(time * 2.5 + tp.x + tp.y) * 1.5;
-    const px = sx(tp.x, game), py = sy(tp.y + bob, game);
+    const px = tp.x, py = tp.y + bob;
     // Glow
     crayonCircle(ctx, px, py, 13, { fill: 'rgba(168,85,247,0.15)', jitterAmt: 0.5 });
     drawToolShape(ctx, px, py, tp.type, 10, time);
@@ -145,8 +142,8 @@ export function renderToolPickups(ctx: CanvasRenderingContext2D, game: Game): vo
 export function renderDistractions(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const d of game.distractions) {
-    if (!onScreen(d.x, d.y, 50, game)) continue;
-    const px = sx(d.x, game), py = sy(d.y, game);
+    if (offScreen(d.x, d.y, 50, game)) continue;
+    const px = d.x, py = d.y;
     const pulse = Math.sin(time * 6) * 0.2 + 0.5;
     // Range circle — crayon style at low alpha
     crayonCircle(ctx, px, py, DISTRACTION_RANGE, {
@@ -171,10 +168,10 @@ export function renderDistractions(ctx: CanvasRenderingContext2D, game: Game): v
 export function renderLootItems(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const l of game.loots) {
-    if (l.collected || !onScreen(l.x, l.y, 40, game)) continue;
+    if (l.collected || offScreen(l.x, l.y, 40, game)) continue;
     const bob = Math.sin(time * 3 + l.x + l.y) * 1.5;
     const lt = LOOT_TYPES[l.type];
-    const px = sx(l.x, game), py = sy(l.y + bob, game);
+    const px = l.x, py = l.y + bob;
     // Glow
     crayonCircle(ctx, px, py, 16, { fill: lt.glow, jitterAmt: 0.6 });
     drawLootShape(ctx, px, py, l.type, 10);
@@ -194,8 +191,8 @@ export function renderLootItems(ctx: CanvasRenderingContext2D, game: Game): void
 export function renderContainers(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const c of game.containers) {
-    if (!onScreen(c.x, c.y, 40, game)) continue;
-    const px = sx(c.x, game), py = sy(c.y, game);
+    if (offScreen(c.x, c.y, 40, game)) continue;
+    const px = c.x, py = c.y;
 
     if (c.searched) {
       // Already searched: dim crayon rect
@@ -225,9 +222,9 @@ export function renderContainers(ctx: CanvasRenderingContext2D, game: Game): voi
 export function renderKeyPickups(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const k of game.keyPickups) {
-    if (k.collected || !onScreen(k.x, k.y, 40, game)) continue;
+    if (k.collected || offScreen(k.x, k.y, 40, game)) continue;
     const bob = Math.sin(time * 3 + k.x) * 2;
-    const px = sx(k.x, game), py = sy(k.y + bob, game);
+    const px = k.x, py = k.y + bob;
 
     // Glow
     crayonCircle(ctx, px, py, 14, { fill: 'rgba(250,204,21,0.2)', jitterAmt: 0.5 });
@@ -252,9 +249,9 @@ export function renderKeyPickups(ctx: CanvasRenderingContext2D, game: Game): voi
 export function renderGearPickups(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
   for (const g of game.gearPickups) {
-    if (g.collected || !onScreen(g.x, g.y, 40, game)) continue;
+    if (g.collected || offScreen(g.x, g.y, 40, game)) continue;
     const bob = Math.sin(time * 2 + g.x + g.y) * 1.5;
-    const px = sx(g.x, game), py = sy(g.y + bob, game);
+    const px = g.x, py = g.y + bob;
 
     // Glow
     crayonCircle(ctx, px, py, 12, { fill: 'rgba(74,222,128,0.15)', jitterAmt: 0.5 });
@@ -281,8 +278,8 @@ export function renderGearPickups(ctx: CanvasRenderingContext2D, game: Game): vo
 
 export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
   for (const c of game.cheeses) {
-    if ((c.stuckBaby && c.landed) || !onScreen(c.x, c.y, 20, game)) continue;
-    const cpx = sx(c.x, game), cpy = sy(c.y, game);
+    if ((c.stuckBaby && c.landed) || offScreen(c.x, c.y, 20, game)) continue;
+    const cpx = c.x, cpy = c.y;
     if (c.isPacifier) {
       drawToolShape(ctx, cpx, cpy, 'pacifier', 7, game.time);
     } else {
@@ -305,9 +302,9 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
   const useSprites = babySpritesReady();
 
   for (const b of game.babies) {
-    if (!onScreen(b.x, b.y, SPRITE_SIZE, game)) continue;
+    if (offScreen(b.x, b.y, SPRITE_SIZE, game)) continue;
     const stunned = b.stunTimer > 0;
-    let bx = sx(b.x, game), by = sy(b.y, game);
+    let bx = b.x, by = b.y;
 
     // Toddler shake
     if (b.type === 'boss' && !stunned) {
@@ -407,11 +404,82 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 }
 
+const OVERLAY_SPRITE_SIZE = T * 2;
+
+export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): void {
+  const time = game.time;
+
+  for (const b of game.babies) {
+    if (offScreen(b.x, b.y, OVERLAY_SPRITE_SIZE, game)) continue;
+    const stunned = b.stunTimer > 0;
+    let bx = b.x, by = b.y;
+
+    // Boss shake/sway (duplicated from renderBabies for correct overlay positioning)
+    if (b.type === 'boss' && !stunned) {
+      if (b.chasing) {
+        bx += Math.sin(time * 45 + b.y * 7) * 3.0;
+        by += Math.cos(time * 51 + b.x * 7) * 3.0;
+      } else {
+        const sway = Math.sin(time * 6) * 4.5;
+        const perp = b.facing + Math.PI / 2;
+        bx += Math.cos(perp) * sway;
+        by += Math.sin(perp) * sway;
+      }
+    }
+
+    const indY = OVERLAY_SPRITE_SIZE / 2 + 4;
+
+    // Stun effects
+    if (stunned) {
+      const coh = game.cheeses.find(c => c.stuckBaby === b && c.landed);
+      if (coh) {
+        const cx = bx + Math.cos(b.facing) * (OVERLAY_SPRITE_SIZE / 2);
+        const cy = by + Math.sin(b.facing) * (OVERLAY_SPRITE_SIZE / 2);
+        if (coh.isPacifier) drawToolShape(ctx, cx, cy, 'pacifier', 6, time);
+        else {
+          crayonTriangle(ctx, cx, cy - 4, cx + 4, cy + 3, cx - 4, cy + 3, {
+            fill: '#fde047', stroke: '#ca8a04', lineWidth: 1.5,
+          });
+        }
+      }
+      // Stun stars
+      for (let i = 0; i < 3; i++) {
+        const a = time * 5 + i * 2.094;
+        crayonText(ctx, '*', bx + Math.cos(a) * (indY + 6), by + Math.sin(a) * (indY + 6) - 4, {
+          fill: '#fde047', font: '8px sans-serif', align: 'center',
+        });
+      }
+    } else if (b.distracted) {
+      // Heart indicator
+      crayonText(ctx, '\u2665', bx, by - indY, {
+        fill: '#f472b6', font: '10px sans-serif', align: 'center', baseline: 'bottom',
+      });
+    }
+
+    // Alert indicators
+    if (!stunned && !b.distracted && canBabySee(game, b) && !game.player.hiding) {
+      crayonText(ctx, '!', bx, by - indY, {
+        fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
+      });
+    }
+    if (b.type === 'stawler' && b.chasing && !stunned) {
+      crayonText(ctx, '?!', bx, by - indY, {
+        fill: '#f472b6', font: 'bold 12px monospace', align: 'center', baseline: 'alphabetic',
+      });
+    }
+    if (b.type === 'boss' && b.chasing && !stunned) {
+      crayonText(ctx, '!!', bx, by - indY, {
+        fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
+      });
+    }
+  }
+}
+
 export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
   const time = game.time;
   const bob = Math.sin(time * 8) * ((p.vx || p.vy) ? 1.5 : 0);
-  const px = sx(p.x, game), py = sy(p.y, game) + bob;
+  const px = p.x, py = p.y + bob;
 
   if (p.hiding) {
     const stPct = p.stamina / STAMINA_MAX;

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   VIEW_W, VIEW_H, CHEESE_COOLDOWN, TV_DURATION,
-  DISTRACTION_DURATION, COLS, ROWS, T,
+  DISTRACTION_DURATION, T, COLS, ROWS,
 } from '../config';
 import { initGame } from '../state';
 import { initInput, onKeyDown, onKeyUp, mouseWorld } from '../input';
@@ -14,16 +14,18 @@ import {
   updateDistractions, updateTVs, updateDoors, updateNoiseEvents,
   checkPickups, checkWin, updateCamera, updateMinimapSeen,
 } from '../update/world';
-import { renderMap, renderRoomLabels, renderExit, renderDoors } from '../render/map';
+import { renderRoomLabels, renderExit, renderDoors } from '../render/map';
 import {
   renderTVs, renderCheesePickups, renderToolPickups, renderDistractions,
-  renderLootItems, renderCheeses, renderBabies, renderPlayer,
+  renderLootItems, renderCheeses, renderBabyOverlays, renderPlayer,
   renderContainers, renderKeyPickups, renderGearPickups,
 } from '../render/entities';
 import { renderVisionCones } from '../render/visioncones';
+import { renderUI, renderToolWheel, renderDetectionOverlay } from '../render/ui';
 import { renderGameOver, renderWinScreen, renderPauseScreen, retryButtonRect, RETRY_APPEAR_TIME, RETRY_PRESS_DURATION, RETRY_FADE_DURATION } from '../render/screens';
 import { dist } from '../utils';
-import { CanvasLayer } from '../objects/CanvasLayer';
+import { DrawObject } from '../objects/DrawObject';
+import { DEPTH } from '../render/depth';
 import type { Game } from '../types';
 
 const PEEKABOO_PULSE_DURATION = 2.0;
@@ -33,6 +35,36 @@ export class GameScene extends Phaser.Scene {
   private fpsFrames = 0;
   private fpsLast = 0;
   private fpsDisplay = 0;
+
+  // Phaser Tilemap for map
+  private mapLayer!: Phaser.Tilemaps.TilemapLayer;
+
+  // DrawObjects for world entities
+  private exitObj!: DrawObject;
+  private roomLabelObj!: DrawObject;
+  private doorsObj!: DrawObject;
+  private tvsObj!: DrawObject;
+  private containersObj!: DrawObject;
+  private keyPickupsObj!: DrawObject;
+  private gearPickupsObj!: DrawObject;
+  private cheesePickupsObj!: DrawObject;
+  private toolPickupsObj!: DrawObject;
+  private distractionsObj!: DrawObject;
+  private lootObj!: DrawObject;
+  private visionObj!: DrawObject;
+  private cheesesObj!: DrawObject;
+  private babiesObj!: DrawObject;
+  private playerObj!: DrawObject;
+
+  // Phaser sprites for babies
+  private babySprites!: Phaser.GameObjects.Sprite[];
+
+  // UI DrawObjects (scrollFactor 0)
+  private uiObj!: DrawObject;
+  private detectionOverlayObj!: DrawObject;
+  private toolWheelObj!: DrawObject;
+  private screensObj!: DrawObject;
+  private fpsText!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -47,110 +79,177 @@ export class GameScene extends Phaser.Scene {
     initInput(this);
     initAudio(this);
 
-    // Set up CanvasLayer display list (ordered by depth for proper z-ordering)
-    // Background layer: black fill + map tiles
-    const bgLayer = new CanvasLayer(this, (ctx) => {
+    // --- Camera setup ---
+    this.cameras.main.setBounds(0, 0, COLS * T, ROWS * T);
+
+    // --- World-layer DrawObjects (scrollFactor 1 — camera-translated) ---
+
+    // Background fill (drawn at 0,0 in screen space, covers viewport)
+    const bgObj = new DrawObject(this);
+    bgObj.setDepth(DEPTH.MAP - 1);
+    bgObj.setScrollFactor(0);
+    bgObj.drawFn = (ctx) => {
       ctx.fillStyle = '#0e0e1a';
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-      renderMap(ctx, this.game_state);
-    });
-    bgLayer.setDepth(0);
+    };
 
-    // Exit marker
-    const exitLayer = new CanvasLayer(this, (ctx) => {
+    // Map tiles (Phaser Tilemap)
+    this.createTilemap();
+
+    // Exit
+    this.exitObj = new DrawObject(this);
+    this.exitObj.setDepth(DEPTH.EXIT);
+    this.exitObj.drawFn = (ctx) => {
       renderExit(ctx, this.game_state);
-    });
-    exitLayer.setDepth(1);
+    };
 
     // Room labels
-    const labelsLayer = new CanvasLayer(this, (ctx) => {
+    this.roomLabelObj = new DrawObject(this);
+    this.roomLabelObj.setDepth(DEPTH.ROOM_LABELS);
+    this.roomLabelObj.drawFn = (ctx) => {
       renderRoomLabels(ctx, this.game_state);
-    });
-    labelsLayer.setDepth(2);
+    };
 
     // Doors
-    const doorsLayer = new CanvasLayer(this, (ctx) => {
+    this.doorsObj = new DrawObject(this);
+    this.doorsObj.setDepth(DEPTH.DOORS);
+    this.doorsObj.drawFn = (ctx) => {
       renderDoors(ctx, this.game_state);
-    });
-    doorsLayer.setDepth(3);
+    };
 
     // TVs
-    const tvsLayer = new CanvasLayer(this, (ctx) => {
+    this.tvsObj = new DrawObject(this);
+    this.tvsObj.setDepth(DEPTH.TVS);
+    this.tvsObj.drawFn = (ctx) => {
       renderTVs(ctx, this.game_state);
-    });
-    tvsLayer.setDepth(4);
+    };
 
     // Containers
-    const containersLayer = new CanvasLayer(this, (ctx) => {
+    this.containersObj = new DrawObject(this);
+    this.containersObj.setDepth(DEPTH.CONTAINERS);
+    this.containersObj.drawFn = (ctx) => {
       renderContainers(ctx, this.game_state);
-    });
-    containersLayer.setDepth(5);
+    };
 
-    // Pickups (keys, gear, cheese, tools)
-    const pickupsLayer = new CanvasLayer(this, (ctx) => {
+    // Key pickups
+    this.keyPickupsObj = new DrawObject(this);
+    this.keyPickupsObj.setDepth(DEPTH.PICKUPS);
+    this.keyPickupsObj.drawFn = (ctx) => {
       renderKeyPickups(ctx, this.game_state);
+    };
+
+    // Gear pickups
+    this.gearPickupsObj = new DrawObject(this);
+    this.gearPickupsObj.setDepth(DEPTH.PICKUPS);
+    this.gearPickupsObj.drawFn = (ctx) => {
       renderGearPickups(ctx, this.game_state);
+    };
+
+    // Cheese pickups
+    this.cheesePickupsObj = new DrawObject(this);
+    this.cheesePickupsObj.setDepth(DEPTH.PICKUPS);
+    this.cheesePickupsObj.drawFn = (ctx) => {
       renderCheesePickups(ctx, this.game_state);
+    };
+
+    // Tool pickups
+    this.toolPickupsObj = new DrawObject(this);
+    this.toolPickupsObj.setDepth(DEPTH.PICKUPS);
+    this.toolPickupsObj.drawFn = (ctx) => {
       renderToolPickups(ctx, this.game_state);
-    });
-    pickupsLayer.setDepth(6);
+    };
 
     // Distractions
-    const distractionsLayer = new CanvasLayer(this, (ctx) => {
+    this.distractionsObj = new DrawObject(this);
+    this.distractionsObj.setDepth(DEPTH.DISTRACTIONS);
+    this.distractionsObj.drawFn = (ctx) => {
       renderDistractions(ctx, this.game_state);
-    });
-    distractionsLayer.setDepth(7);
+    };
 
-    // Loot items
-    const lootLayer = new CanvasLayer(this, (ctx) => {
+    // Loot
+    this.lootObj = new DrawObject(this);
+    this.lootObj.setDepth(DEPTH.LOOT);
+    this.lootObj.drawFn = (ctx) => {
       renderLootItems(ctx, this.game_state);
-    });
-    lootLayer.setDepth(8);
+    };
 
     // Vision cones
-    const visionLayer = new CanvasLayer(this, (ctx) => {
+    this.visionObj = new DrawObject(this);
+    this.visionObj.setDepth(DEPTH.VISION);
+    this.visionObj.drawFn = (ctx) => {
       renderVisionCones(ctx, this.game_state);
-    });
-    visionLayer.setDepth(9);
+    };
 
-    // Projectiles
-    const cheesesLayer = new CanvasLayer(this, (ctx) => {
+    // Cheeses
+    this.cheesesObj = new DrawObject(this);
+    this.cheesesObj.setDepth(DEPTH.CHEESES);
+    this.cheesesObj.drawFn = (ctx) => {
       renderCheeses(ctx, this.game_state);
-    });
-    cheesesLayer.setDepth(10);
+    };
 
-    // Babies
-    const babiesLayer = new CanvasLayer(this, (ctx) => {
-      renderBabies(ctx, this.game_state);
-    });
-    babiesLayer.setDepth(11);
+    // Baby sprites — one per baby, using Phaser.GameObjects.Sprite
+    this.createBabySprites();
+
+    // Baby overlays (stun stars, alerts, hearts) — DrawObject with Canvas2D
+    this.babiesObj = new DrawObject(this);
+    this.babiesObj.setDepth(DEPTH.BABIES + 1);
+    this.babiesObj.drawFn = (ctx) => {
+      renderBabyOverlays(ctx, this.game_state);
+    };
 
     // Player
-    const playerLayer = new CanvasLayer(this, (ctx) => {
+    this.playerObj = new DrawObject(this);
+    this.playerObj.setDepth(DEPTH.PLAYER);
+    this.playerObj.drawFn = (ctx) => {
       renderPlayer(ctx, this.game_state);
-    });
-    playerLayer.setDepth(12);
+    };
 
-    // Screen overlays (gameover, win, pause) — rendered on top of everything in screen space
-    const overlayLayer = new CanvasLayer(this, (ctx) => {
+    // --- UI DrawObjects (scrollFactor 0 — screen-space) ---
+
+    // HUD
+    this.uiObj = new DrawObject(this);
+    this.uiObj.setDepth(DEPTH.UI);
+    this.uiObj.setScrollFactor(0);
+    this.uiObj.drawFn = (ctx) => {
+      renderUI(ctx, this.game_state);
+    };
+
+    // Detection overlay
+    this.detectionOverlayObj = new DrawObject(this);
+    this.detectionOverlayObj.setDepth(DEPTH.UI_DETECTION_OVERLAY);
+    this.detectionOverlayObj.setScrollFactor(0);
+    this.detectionOverlayObj.drawFn = (ctx) => {
+      renderDetectionOverlay(ctx, this.game_state);
+    };
+
+    // Tool wheel
+    this.toolWheelObj = new DrawObject(this);
+    this.toolWheelObj.setDepth(DEPTH.UI_WHEEL);
+    this.toolWheelObj.setScrollFactor(0);
+    this.toolWheelObj.drawFn = (ctx) => {
+      renderToolWheel(ctx, this.game_state);
+    };
+
+    // Screen overlays (gameover/win/pause)
+    this.screensObj = new DrawObject(this);
+    this.screensObj.setDepth(DEPTH.UI_SCREENS);
+    this.screensObj.setScrollFactor(0);
+    this.screensObj.drawFn = (ctx) => {
       const game = this.game_state;
       if (game.state === 'gameover') renderGameOver(ctx, game);
       if (game.state === 'win') renderWinScreen(ctx, game);
       if (game.state === 'paused') renderPauseScreen(ctx);
-    });
-    overlayLayer.setDepth(100);
+    };
 
     // FPS counter
-    const fpsLayer = new CanvasLayer(this, (ctx) => {
-      ctx.fillStyle = '#4ade80';
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(this.fpsDisplay + ' fps', VIEW_W - 6, 12);
+    this.fpsText = this.add.text(VIEW_W - 6, 4, '0 fps', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#4ade80',
     });
-    fpsLayer.setDepth(200);
-
-    // Launch UI scene in parallel
-    this.scene.launch('UIScene', { getGame: () => this.game_state });
+    this.fpsText.setOrigin(1, 0);
+    this.fpsText.setDepth(DEPTH.UI_FPS);
+    this.fpsText.setScrollFactor(0);
 
     // Set up key handlers
     this.setupKeyHandlers();
@@ -162,6 +261,93 @@ export class GameScene extends Phaser.Scene {
     this.fpsFrames = 0;
     this.fpsLast = performance.now();
     this.fpsDisplay = 0;
+  }
+
+  /** Build a Phaser Tilemap from the game grid. */
+  private createTilemap(): void {
+    const grid = this.game_state.grid;
+    const mapData: number[][] = [];
+    for (let y = 0; y < ROWS; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < COLS; x++) {
+        const v = grid[y][x];
+        if (v === 0) {
+          // Floor: checkerboard variants (tile indices 1 and 2, firstgid=1)
+          row.push((x + y) % 2 + 1);
+        } else if (v === 1) {
+          // Wall (tile index 3)
+          row.push(3);
+        } else {
+          // Furniture (tile index 4)
+          row.push(4);
+        }
+      }
+      mapData.push(row);
+    }
+    const map = this.make.tilemap({ data: mapData, tileWidth: T, tileHeight: T });
+    const tileset = map.addTilesetImage('tilesheet');
+    this.mapLayer = map.createLayer(0, tileset!)!;
+    this.mapLayer.setDepth(DEPTH.MAP);
+  }
+
+  /** Create Phaser sprites for all babies. */
+  private createBabySprites(): void {
+    const SPRITE_SIZE = T * 2;
+    this.babySprites = this.game_state.babies.map(b => {
+      const key = b.type === 'boss' ? 'boss1' : b.type === 'stawler' ? 'str1' : 'baby1';
+      const sprite = this.add.sprite(b.x, b.y, key);
+      sprite.setDisplaySize(SPRITE_SIZE, SPRITE_SIZE);
+      sprite.setDepth(DEPTH.BABIES);
+      return sprite;
+    });
+  }
+
+  /** Sync baby Phaser sprites to game state each frame. */
+  private syncBabySprites(): void {
+    const game = this.game_state;
+    const time = game.time;
+    const FRAME_DURATION = 0.15;
+
+    for (let i = 0; i < game.babies.length; i++) {
+      const b = game.babies[i];
+      const sprite = this.babySprites[i];
+      if (!sprite) continue;
+
+      const stunned = b.stunTimer > 0;
+      let bx = b.x, by = b.y;
+
+      // Boss shake/sway
+      if (b.type === 'boss' && !stunned) {
+        if (b.chasing) {
+          bx += Math.sin(time * 45 + b.y * 7) * 3.0;
+          by += Math.cos(time * 51 + b.x * 7) * 3.0;
+        } else {
+          const sway = Math.sin(time * 6) * 4.5;
+          const perp = b.facing + Math.PI / 2;
+          bx += Math.cos(perp) * sway;
+          by += Math.sin(perp) * sway;
+        }
+      }
+
+      sprite.setPosition(bx, by);
+      sprite.setRotation(b.facing + Math.PI / 2);
+      sprite.setAlpha(stunned ? 0.5 : 1);
+
+      // Frame selection
+      const moving = b.pauseTimer <= 0 && !stunned;
+      let frameIndex: number;
+      if (moving) {
+        frameIndex = Math.floor(time / FRAME_DURATION) % 4;
+      } else {
+        const facingLeft = Math.cos(b.facing) < 0;
+        const tick = Math.floor(time / 0.4) % 2;
+        frameIndex = facingLeft ? (tick === 0 ? 3 : 2) : (tick === 0 ? 1 : 0);
+      }
+
+      // Set texture by type + frame
+      const prefix = b.type === 'boss' ? 'boss' : b.type === 'stawler' ? 'str' : 'baby';
+      sprite.setTexture(`${prefix}${frameIndex + 1}`);
+    }
   }
 
   private setupKeyHandlers(): void {
@@ -284,6 +470,19 @@ export class GameScene extends Phaser.Scene {
   private restartGame(): void {
     this.game_state = initGame();
     this.game_state.state = 'playing';
+
+    // Recreate tilemap
+    if (this.mapLayer) {
+      this.mapLayer.tilemap.destroy();
+    }
+    this.createTilemap();
+
+    // Recreate baby sprites
+    if (this.babySprites) {
+      for (const s of this.babySprites) s.destroy();
+    }
+    this.createBabySprites();
+
     startMusic();
   }
 
@@ -297,6 +496,7 @@ export class GameScene extends Phaser.Scene {
       this.fpsDisplay = Math.round(this.fpsFrames / ((now - this.fpsLast) / 1000));
       this.fpsFrames = 0;
       this.fpsLast = now;
+      this.fpsText.setText(this.fpsDisplay + ' fps');
     }
 
     // Delta time in seconds, capped at 0.1s (same as original)
@@ -347,5 +547,12 @@ export class GameScene extends Phaser.Scene {
     checkWin(game);
     updateMinimapSeen(game, dt);
     updateCamera(game, dt);
+
+    // Sync baby sprites to game state
+    this.syncBabySprites();
+
+    // Sync Phaser camera to game camera
+    this.cameras.main.scrollX = game.camera.x;
+    this.cameras.main.scrollY = game.camera.y;
   }
 }

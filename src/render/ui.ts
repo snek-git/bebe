@@ -401,6 +401,32 @@ function renderCrosshair(ctx: CanvasRenderingContext2D, game: Game): void {
   ctx.fill();
 }
 
+// Minimap grid cache — pre-rendered static tiles to avoid 2200 fillRect/frame
+let _mmGridCanvas: HTMLCanvasElement | null = null;
+let _mmGridRef: number[][] | null = null;
+
+function getMinimapGridCache(grid: number[][]): HTMLCanvasElement {
+  if (_mmGridCanvas && _mmGridRef === grid) return _mmGridCanvas;
+
+  const mmS = 3;
+  const c = document.createElement('canvas');
+  c.width = COLS * mmS;
+  c.height = ROWS * mmS;
+  const gCtx = c.getContext('2d')!;
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const v = grid[y][x];
+      gCtx.fillStyle = v === 1 ? '#3a3a5c' : (v === 2 ? '#2a1f14' : '#1e1e2e');
+      gCtx.fillRect(x * mmS, y * mmS, mmS, mmS);
+    }
+  }
+
+  _mmGridCanvas = c;
+  _mmGridRef = grid;
+  return c;
+}
+
 function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
   const mmS = 3, mmW = COLS * mmS, mmH = ROWS * mmS;
   const mmX = VIEW_W - mmW - 8, mmY = VIEW_H - mmH - 20;
@@ -409,13 +435,7 @@ function renderMinimap(ctx: CanvasRenderingContext2D, game: Game): void {
     fill: SK.bg,
     stroke: SK.cardStroke,
   });
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      const v = game.grid[y][x];
-      ctx.fillStyle = v === 1 ? '#3a3a5c' : (v === 2 ? '#2a1f14' : '#1e1e2e');
-      ctx.fillRect(mmX + x * mmS, mmY + y * mmS, mmS, mmS);
-    }
-  }
+  ctx.drawImage(getMinimapGridCache(game.grid), mmX, mmY);
 
   // Doors on minimap
   for (const d of game.doors) {

@@ -43,11 +43,9 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
       pts.push({ x: b.x + cs * hitD + wx, y: b.y + sn * hitD + wy });
     }
 
-    const bx = b.x - cam.x, by = b.y - cam.y;
-
     ctx.beginPath();
-    ctx.moveTo(bx, by);
-    for (const p of pts) ctx.lineTo(p.x - cam.x, p.y - cam.y);
+    ctx.moveTo(b.x, b.y);
+    for (const p of pts) ctx.lineTo(p.x, p.y);
     ctx.closePath();
 
     if (seeing) ctx.fillStyle = 'rgba(239,68,68,0.18)';
@@ -62,8 +60,8 @@ export function renderVisionCones(ctx: CanvasRenderingContext2D, game: Game): vo
     ctx.lineJoin = 'round';
 
     ctx.beginPath();
-    ctx.moveTo(bx, by);
-    for (const p of pts) ctx.lineTo(p.x - cam.x, p.y - cam.y);
+    ctx.moveTo(b.x, b.y);
+    for (const p of pts) ctx.lineTo(p.x, p.y);
     ctx.closePath();
     ctx.stroke();
   }

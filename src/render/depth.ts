@@ -1,0 +1,21 @@
+/** Depth constants for display-list ordering. */
+export const DEPTH = {
+  MAP: 0,
+  EXIT: 5,
+  ROOM_LABELS: 6,
+  DOORS: 10,
+  TVS: 15,
+  CONTAINERS: 16,
+  PICKUPS: 20,
+  DISTRACTIONS: 22,
+  LOOT: 25,
+  VISION: 30,
+  CHEESES: 35,
+  BABIES: 40,
+  PLAYER: 50,
+  UI: 100,
+  UI_DETECTION_OVERLAY: 115,
+  UI_WHEEL: 130,
+  UI_SCREENS: 140,
+  UI_FPS: 150,
+} as const;

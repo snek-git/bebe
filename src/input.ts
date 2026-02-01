@@ -1,4 +1,3 @@
-import { VIEW_W, VIEW_H } from './config';
 import type { Camera } from './types';
 
 export interface InputState {
@@ -15,15 +14,7 @@ type KeyHandler = (e: KeyboardEvent) => void;
 let keyDownHandler: KeyHandler | null = null;
 let keyUpHandler: KeyHandler | null = null;
 
-let _scene: Phaser.Scene | null = null;
-let _canvas: HTMLCanvasElement | null = null;
-
 export function initInput(scene: Phaser.Scene): void {
-  _scene = scene;
-
-  // Get the canvas element from Phaser's game
-  _canvas = scene.game.canvas;
-
   // Keyboard input via Phaser - listen for native events to maintain compatibility
   scene.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
     state.keys[event.key.toLowerCase()] = true;
@@ -67,12 +58,4 @@ export function onKeyDown(handler: KeyHandler): void {
 
 export function onKeyUp(handler: KeyHandler): void {
   keyUpHandler = handler;
-}
-
-export function addClickHandler(canvas: HTMLCanvasElement, handler: (worldX: number, worldY: number) => void, camera: Camera): void {
-  // Not used in Phaser migration - click handling done via scene.input.on('pointerdown')
-}
-
-export function addScreenClickHandler(canvas: HTMLCanvasElement, handler: (screenX: number, screenY: number) => void): void {
-  // Not used in Phaser migration - click handling done via scene.input.on('pointerdown')
 }
