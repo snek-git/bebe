@@ -158,6 +158,8 @@ export function updateBabies(game: Game, dt: number): void {
       if (b.type === 'stawler') { b.chasing = false; b.vel = 0; b.chargeDist = 0; }
       if (b.type === 'boss') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       b.distracted = false;
+      b.lastSeenX = undefined;
+      b.lastSeenY = undefined;
       continue;
     }
 
@@ -173,6 +175,8 @@ export function updateBabies(game: Game, dt: number): void {
       b.distracted = true;
       if (b.type === 'stawler') b.chasing = false;
       if (b.type === 'boss') { b.chasing = false; b.path = []; b.pathIndex = 0; }
+      b.lastSeenX = undefined;
+      b.lastSeenY = undefined;
       const dx = attr.x - b.x, dy = attr.y - b.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d > 12) {
@@ -214,6 +218,8 @@ export function updateBabies(game: Game, dt: number): void {
       const canSee = canBabySeePeeker(game, b);
       if (canSee && !p.hiding) {
         b.chasing = true;
+        b.lastSeenX = p.x;
+        b.lastSeenY = p.y;
         const dx = p.x - b.x, dy = p.y - b.y;
         moveStawlerToward(b, p.x, p.y, STAWLER_MAX_SPEED, dt, game.grid);
         b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
@@ -229,6 +235,8 @@ export function updateBabies(game: Game, dt: number): void {
       const canSee = canBabySee(game, b) && !p.hiding;
       if (canSee) {
         b.chasing = true;
+        b.lastSeenX = p.x;
+        b.lastSeenY = p.y;
         const dx = p.x - b.x, dy = p.y - b.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d > BABY_RADIUS + PLAYER_RADIUS) {
@@ -408,6 +416,36 @@ export function updateBabies(game: Game, dt: number): void {
         }
       }
       continue;
+    }
+
+    // Investigate last-seen position (crawlers and stawlers)
+    if ((b.type === 'crawler' || b.type === 'stawler') && b.lastSeenX != null && b.lastSeenY != null) {
+      const lsx = b.lastSeenX, lsy = b.lastSeenY;
+      const dd = dist(b, { x: lsx, y: lsy });
+      if (dd < 24) {
+        // Arrived — clear last-seen, resume patrol
+        b.lastSeenX = undefined;
+        b.lastSeenY = undefined;
+        b.pauseTimer = 0;
+      } else {
+        // Move toward last-seen position
+        const idx = lsx - b.x, idy = lsy - b.y;
+        const id = Math.sqrt(idx * idx + idy * idy);
+        if (b.type === 'stawler') {
+          moveStawlerToward(b, lsx, lsy, b.speed, dt, game.grid);
+        } else {
+          const crawl = game.time * 8 + b.pauseTime * 10;
+          const stride = 0.6 + 0.4 * Math.abs(Math.sin(crawl));
+          const wobble = Math.sin(crawl * 2) * 6;
+          const nx = idx / id, ny = idy / id;
+          b.x += (nx * b.speed * stride - ny * wobble) * dt;
+          b.y += (ny * b.speed * stride + nx * wobble) * dt;
+          resolveWalls(game.grid, b);
+        }
+        b.facing = rotateTowards(b.facing, Math.atan2(idy, idx), turn);
+        b.pauseTimer = 0;
+        continue;
+      }
     }
 
     // Baby door pushing: if walking toward a closed door, push it slowly

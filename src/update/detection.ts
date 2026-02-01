@@ -6,52 +6,53 @@ import { canBabySee } from './babies';
 import { playBabyCry } from '../audio';
 import type { Game } from '../types';
 
+const CRY_COUNT = 3;
+const DET_PER_CRY = 100 / CRY_COUNT; // ~33.33
+
 export function updateDetection(game: Game, dt: number): void {
-  let seen = false;
   const p = game.player;
+  let maxDet = 0;
 
   for (const b of game.babies) {
-    if (b.distracted) continue;
     if (b.type === 'boss') continue;
     if (b.type === 'stawler') continue;
-    if (canBabySee(game, b) && !p.hiding) {
-      seen = true;
-      break;
-    }
-  }
 
-  if (seen) {
-    const mult = p.gear.includes('sneakers') ? SNEAKER_DETECTION_MULT : 1.0;
-    game.detection += DETECTION_RATE * mult * dt;
-    if (game.detection >= 100) {
-      game.detection = 100;
-    }
-  } else if (game.detection < 100) {
-    game.detection = Math.max(0, game.detection - DETECTION_DECAY * dt);
-  }
+    const seeing = !b.distracted && canBabySee(game, b) && !p.hiding;
 
-  // Update milk bottle drop animations
-  // Timer values: 0 = never triggered, >0 = animating, -1 = settled
-  const milkIndex = Math.min(5, Math.floor(game.detection / 20));
-  for (let i = 0; i < 5; i++) {
-    if (i < milkIndex && game.milkFillAnim[i] === 0) {
-      game.milkFillAnim[i] = 0.3;
+    if (seeing) {
+      const mult = p.gear.includes('sneakers') ? SNEAKER_DETECTION_MULT : 1.0;
+      b.detection = Math.min(100, b.detection + DETECTION_RATE * mult * dt);
+    } else {
+      b.detection = Math.max(0, b.detection - DETECTION_DECAY * dt);
     }
-    if (i >= milkIndex) {
-      game.milkFillAnim[i] = 0; // detection decayed, reset
-    }
-    if (game.milkFillAnim[i] > 0) {
-      game.milkFillAnim[i] -= dt;
-      if (game.milkFillAnim[i] <= 0) {
-        game.milkFillAnim[i] = -1; // settled, don't re-trigger
+
+    // Update per-baby cry indicator animations (3 indicators)
+    const cryIndex = Math.min(CRY_COUNT, Math.floor(b.detection / DET_PER_CRY));
+    for (let i = 0; i < CRY_COUNT; i++) {
+      if (i < cryIndex && b.cryAnim[i] === 0) {
+        b.cryAnim[i] = 0.3; // start bounce
+      }
+      if (i >= cryIndex) {
+        b.cryAnim[i] = 0; // detection decayed, reset
+      }
+      if (b.cryAnim[i] > 0) {
+        b.cryAnim[i] -= dt;
+        if (b.cryAnim[i] <= 0) {
+          b.cryAnim[i] = -1; // settled
+        }
       }
     }
+
+    if (b.detection > maxDet) maxDet = b.detection;
+
+    // Game over when this baby's frustration maxes out and all 3 indicators settled
+    if (b.detection >= 100 && b.cryAnim.every(t => t <= 0)) {
+      game.state = 'gameover';
+      game.gameOverTimer = 0;
+      playBabyCry();
+    }
   }
 
-  // End game after all 5 bottles have filled and settled
-  if (game.detection >= 100 && game.milkFillAnim.every(t => t <= 0)) {
-    game.state = 'gameover';
-    game.gameOverTimer = 0;
-    playBabyCry();
-  }
+  // Global detection = max across all crawlers (used by boss AI + vignette)
+  game.detection = maxDet;
 }

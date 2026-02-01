@@ -141,6 +141,8 @@ export interface Baby {
   pushDirX?: number;
   pushDirY?: number;
   chargeDist?: number;
+  detection: number;
+  cryAnim: number[];
 }
 
 export interface Loot {

@@ -11,32 +11,6 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
   const time = game.time;
 
-  // Crying baby detection indicator
-  const det = game.detection;
-  const babyIndex = Math.min(5, Math.floor(det / 20));
-  const fillFraction = (det % 20) / 20;
-
-  const faceSize = 26, faceGap = 6;
-  const totalW = 5 * faceSize + 4 * faceGap;
-  const startX = VIEW_W / 2 - totalW / 2;
-  const baseY = 20;
-
-  for (let i = 0; i < 5; i++) {
-    const fx = startX + i * (faceSize + faceGap) + faceSize / 2;
-
-    // Bounce offset from fill animation
-    const anim = game.milkFillAnim[i];
-    const bounceT = anim / 0.3;
-    const yOff = bounceT > 0 ? -10 * Math.sin(bounceT * Math.PI) * bounceT : 0;
-    const fy = baseY + yOff;
-
-    let fill = 0;
-    if (i < babyIndex) fill = 1;
-    else if (i === babyIndex) fill = fillFraction;
-
-    drawCryingBaby(ctx, fx, fy, faceSize / 2, fill, bounceT > 0, time);
-  }
-
   // === HOTBAR (bottom center) ===
   renderHotbar(ctx, game);
 
@@ -161,7 +135,7 @@ export function renderUI(ctx: CanvasRenderingContext2D, game: Game): void {
   renderMinimap(ctx, game);
 }
 
-function drawCryingBaby(
+export function drawCryingBaby(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number, r: number,
   fillLevel: number, animating: boolean, time: number,

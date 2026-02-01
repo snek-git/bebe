@@ -8,6 +8,7 @@ import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
 import { getPlayerWalkFrame, getPlayerIdle, getPlayerHide } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
+import { drawCryingBaby } from './ui';
 import type { Game } from '../types';
 
 function offScreen(x: number, y: number, m: number, game: Game): boolean {
@@ -306,6 +307,36 @@ export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): v
       crayonText(ctx, '!!', bx, by - indY, {
         fill: '#ef4444', font: 'bold 14px monospace', align: 'center', baseline: 'alphabetic',
       });
+    }
+
+    // Per-baby frustration indicators (3 crying faces above crawlers)
+    if (b.type === 'crawler' && b.detection > 0) {
+      const CRY_COUNT = 3;
+      const DET_PER_CRY = 100 / CRY_COUNT;
+      const cryIndex = Math.min(CRY_COUNT, Math.floor(b.detection / DET_PER_CRY));
+      const fillFrac = (b.detection % DET_PER_CRY) / DET_PER_CRY;
+
+      const faceSize = 9;
+      const faceGap = 3;
+      const totalW = CRY_COUNT * (faceSize * 2) + (CRY_COUNT - 1) * faceGap;
+      const startX = bx - totalW / 2;
+      const cryY = by - indY - 14;
+
+      for (let i = 0; i < CRY_COUNT; i++) {
+        const fx = startX + i * (faceSize * 2 + faceGap) + faceSize;
+
+        // Bounce from animation
+        const anim = b.cryAnim[i];
+        const bounceT = anim / 0.3;
+        const yOff = bounceT > 0 ? -6 * Math.sin(bounceT * Math.PI) * bounceT : 0;
+        const fy = cryY + yOff;
+
+        let fill = 0;
+        if (i < cryIndex) fill = 1;
+        else if (i === cryIndex) fill = fillFrac;
+
+        drawCryingBaby(ctx, fx, fy, faceSize, fill, bounceT > 0, time);
+      }
     }
   }
 }

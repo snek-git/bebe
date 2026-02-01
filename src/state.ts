@@ -157,6 +157,8 @@ export function initGame(): Game {
       type: bd.type,
       vel: 0,
       waypoints: wps,
+      detection: 0,
+      cryAnim: [0, 0, 0],
     };
     if (bd.type === 'stawler') {
       base.chasing = false;
