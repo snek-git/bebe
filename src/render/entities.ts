@@ -6,7 +6,7 @@ import {
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
-import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame } from '../sprites';
+import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame, getPlayerWalkFrame, getPlayerIdle, getPlayerHide } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
@@ -476,21 +476,28 @@ export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): v
 export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
   const p = game.player;
   const time = game.time;
-  const bob = Math.sin(time * 8) * ((p.vx || p.vy) ? 1.5 : 0);
+  const moving = !!(p.vx || p.vy);
+  const bob = Math.sin(time * 8) * (moving ? 1.5 : 0);
   const px = p.x, py = p.y + bob;
+  const SPRITE_SZ = T * 2;
 
   if (p.hiding) {
     const stPct = p.stamina / STAMINA_MAX;
     const flicker = stPct < 0.3 ? (Math.sin(time * 12) * 0.15 + 0.45) : 0.6;
     ctx.globalAlpha = flicker;
-    const bodyColor = stPct < 0.3 ? '#a3e635' : '#22c55e';
-    crayonCircle(ctx, px, py, PLAYER_RADIUS, {
-      fill: bodyColor, stroke: bodyColor, lineWidth: 2.5, jitterAmt: 0.5,
-    });
-    // Peekaboo eyes
-    ctx.strokeStyle = '#fcd34d'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS * 0.5, -0.8, 0.8); ctx.stroke();
-    ctx.beginPath(); ctx.arc(px, py, PLAYER_RADIUS * 0.5, Math.PI - 0.8, Math.PI + 0.8); ctx.stroke();
+
+    const hideImg = getPlayerHide();
+    if (hideImg) {
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(p.facing - Math.PI / 2);
+      ctx.drawImage(hideImg, -SPRITE_SZ / 2, -SPRITE_SZ / 2, SPRITE_SZ, SPRITE_SZ);
+      ctx.restore();
+    } else {
+      // Fallback circle
+      crayonCircle(ctx, px, py, PLAYER_RADIUS, { fill: '#22c55e', stroke: '#22c55e', lineWidth: 2.5, jitterAmt: 0.5 });
+    }
+
     // Hiding ring
     const ringSize = stPct < 0.3 ? (PLAYER_RADIUS + 3 + Math.sin(time * 8) * 3) : (PLAYER_RADIUS + 6 + Math.sin(time * 4) * 2);
     crayonCircle(ctx, px, py, ringSize, {
@@ -499,20 +506,24 @@ export function renderPlayer(ctx: CanvasRenderingContext2D, game: Game): void {
     });
     ctx.globalAlpha = 1;
   } else {
-    const bodyColor = p.sprinting ? '#86efac' : '#4ade80';
-    crayonCircle(ctx, px, py, PLAYER_RADIUS, {
-      fill: bodyColor, stroke: '#22c55e', lineWidth: 3, jitterAmt: 0.5,
-    });
-    // Eyes — keep small, use crayonCircle for whites
-    const eo = 4;
-    const e1x = px + Math.cos(p.facing - 0.4) * eo, e1y = py + Math.sin(p.facing - 0.4) * eo;
-    const e2x = px + Math.cos(p.facing + 0.4) * eo, e2y = py + Math.sin(p.facing + 0.4) * eo;
-    crayonCircle(ctx, e1x, e1y, 2.5, { fill: '#fff', jitterAmt: 0.2 });
-    crayonCircle(ctx, e2x, e2y, 2.5, { fill: '#fff', jitterAmt: 0.2 });
-    // Pupils
-    ctx.fillStyle = '#1e1e2e'; ctx.beginPath();
-    ctx.arc(e1x + Math.cos(p.facing) * 0.8, e1y + Math.sin(p.facing) * 0.8, 1.2, 0, Math.PI * 2);
-    ctx.arc(e2x + Math.cos(p.facing) * 0.8, e2y + Math.sin(p.facing) * 0.8, 1.2, 0, Math.PI * 2); ctx.fill();
+    let img: HTMLImageElement | null;
+    if (moving) {
+      const frameIdx = Math.floor(time / 0.15) % 4;
+      img = getPlayerWalkFrame(frameIdx);
+    } else {
+      img = getPlayerIdle();
+    }
+
+    if (img) {
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(p.facing - Math.PI / 2);
+      ctx.drawImage(img, -SPRITE_SZ / 2, -SPRITE_SZ / 2, SPRITE_SZ, SPRITE_SZ);
+      ctx.restore();
+    } else {
+      // Fallback green circle
+      crayonCircle(ctx, px, py, PLAYER_RADIUS, { fill: '#4ade80', stroke: '#22c55e', lineWidth: 3, jitterAmt: 0.5 });
+    }
   }
 
   // Progress bars — crayon style (matches UI peekaboo bar pattern)

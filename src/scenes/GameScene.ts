@@ -5,7 +5,7 @@ import {
 } from '../config';
 import { initGame } from '../state';
 import { initInput, onKeyDown, onKeyUp, mouseWorld } from '../input';
-import { initAudio, startMusic } from '../audio';
+import { initAudio, startMusic, playCheeseThrow, playClick } from '../audio';
 import { updatePlayer } from '../update/player';
 import { updateBabies } from '../update/babies';
 import { updateProjectiles } from '../update/projectiles';
@@ -346,8 +346,15 @@ export class GameScene extends Phaser.Scene {
       }
 
       sprite.setPosition(bx, by);
+      sprite.setAlpha(stunned ? 0.7 : 1);
+
+      if (stunned) {
+        sprite.setTexture('bebestunned');
+        sprite.setRotation(0);
+        continue;
+      }
+
       sprite.setRotation(b.facing + Math.PI / 2);
-      sprite.setAlpha(stunned ? 0.5 : 1);
 
       // Frame selection
       const moving = b.pauseTimer <= 0 && !stunned;
@@ -425,6 +432,7 @@ export class GameScene extends Phaser.Scene {
       if (game.state === 'gameover' && game.gameOverTimer > RETRY_APPEAR_TIME) {
         const btn = retryButtonRect();
         if (pointer.x >= btn.x && pointer.x <= btn.x + btn.w && pointer.y >= btn.y && pointer.y <= btn.y + btn.h) {
+          playClick();
           game.retryPressTimer = RETRY_PRESS_DURATION;
           game.retryFadeTimer = RETRY_FADE_DURATION;
           game.retryPending = true;
@@ -445,6 +453,7 @@ export class GameScene extends Phaser.Scene {
           targetX: worldX, targetY: worldY,
           landed: false, timer: 0, dead: false, stuckBaby: null,
         });
+        playCheeseThrow();
       }
     });
   }
@@ -474,6 +483,7 @@ export class GameScene extends Phaser.Scene {
         targetX: m.x, targetY: m.y,
         landed: false, timer: 0, dead: false, stuckBaby: null, isPacifier: true,
       });
+      playCheeseThrow();
     } else {
       game.player.tools.shift();
       game.distractions.push({

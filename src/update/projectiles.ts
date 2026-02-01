@@ -4,6 +4,7 @@ import {
 } from '../config';
 import { isWall } from '../map';
 import { dist } from '../utils';
+import { playCheeseHit } from '../audio';
 import type { Game } from '../types';
 
 export function updateProjectiles(game: Game, dt: number): void {
@@ -48,6 +49,7 @@ export function updateProjectiles(game: Game, dt: number): void {
           c.timer = stunTime;
           c.stuckBaby = b;
           b.stunTimer = stunTime;
+          playCheeseHit();
           break;
         }
       }

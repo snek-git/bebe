@@ -1,4 +1,5 @@
 import { ROOM_DEFS, CORRIDORS, COLS, ROWS, T } from './config';
+import { WALL_OVERRIDES } from './level-data';
 import type { Point, RoomDef, Door } from './types';
 
 export function createGrid(): number[][] {
@@ -19,6 +20,11 @@ export function createGrid(): number[][] {
       for (let yy = r.y + fy; yy < r.y + fy + fh && yy < ROWS; yy++)
         for (let xx = r.x + fx; xx < r.x + fx + fw && xx < COLS; xx++)
           if (yy >= 0 && xx >= 0) g[yy][xx] = 2;
+  }
+
+  // Apply wall overrides from editor (narrow corridors, patch gaps)
+  for (const { tx, ty } of WALL_OVERRIDES) {
+    if (ty >= 0 && ty < ROWS && tx >= 0 && tx < COLS) g[ty][tx] = 1;
   }
 
   const fr = roomDef('foyer')!;

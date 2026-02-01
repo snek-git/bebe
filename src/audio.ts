@@ -13,7 +13,7 @@ export function startMusic(): void {
       music.stop();
       music.destroy();
     }
-    music = _scene.sound.add('music', { loop: true, volume: 0.35 });
+    music = _scene.sound.add('music', { loop: true, volume: 0.15 });
     music.play();
     started = true;
   } catch {
@@ -31,4 +31,26 @@ export function setMusicVolume(v: number): void {
   if (music && 'setVolume' in music) {
     (music as Phaser.Sound.WebAudioSound).setVolume(Math.max(0, Math.min(1, v)));
   }
+}
+
+export function playSfx(key: string, volume = 0.5): void {
+  if (!_scene) return;
+  try {
+    _scene.sound.play(key, { volume });
+  } catch {
+    // ignore playback errors
+  }
+}
+
+export function playCheeseThrow(): void {
+  playSfx('cheese_throw', 0.7);
+}
+
+export function playCheeseHit(): void {
+  playSfx('cheese_hit', 0.8);
+}
+
+export function playClick(): void {
+  const keys = ['click1', 'click2', 'click3'];
+  playSfx(keys[Math.floor(Math.random() * keys.length)], 0.35);
 }

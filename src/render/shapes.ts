@@ -208,25 +208,13 @@ export function drawLootShape(ctx: CanvasRenderingContext2D, px: number, py: num
 }
 
 export function drawCheeseShape(ctx: CanvasRenderingContext2D, px: number, py: number, s: number): void {
-  // American cheese slice (Square, no holes)
-  const size = s * 1.6;
-  const x = px - size / 2;
-  const y = py - size / 2;
-
-  ctx.fillStyle = '#fbbf24'; // Warmer orange-yellow
+  // Simple cheese circle
+  ctx.fillStyle = '#fbbf24';
   ctx.beginPath();
-  // Rounded square
-  const r = size * 0.1;
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + size - r, y); ctx.quadraticCurveTo(x + size, y, x + size, y + r);
-  ctx.lineTo(x + size, y + size - r); ctx.quadraticCurveTo(x + size, y + size, x + size - r, y + size);
-  ctx.lineTo(x + r, y + size); ctx.quadraticCurveTo(x, y + size, x, y + size - r);
-  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.arc(px, py, s * 0.7, 0, Math.PI * 2);
   ctx.fill();
-
-  // Shiny highlight
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
   ctx.beginPath();
-  ctx.ellipse(x + size * 0.3, y + size * 0.3, size * 0.15, size * 0.1, -Math.PI / 4, 0, Math.PI * 2);
+  ctx.arc(px - s * 0.15, py - s * 0.15, s * 0.25, 0, Math.PI * 2);
   ctx.fill();
 }
