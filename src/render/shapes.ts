@@ -208,13 +208,12 @@ export function drawLootShape(ctx: CanvasRenderingContext2D, px: number, py: num
 }
 
 export function drawCheeseShape(ctx: CanvasRenderingContext2D, px: number, py: number, s: number): void {
-  // Simple cheese circle
+  // American cheese slice — small yellow square
+  const size = s * 1.4;
+  const x = px - size / 2;
+  const y = py - size / 2;
   ctx.fillStyle = '#fbbf24';
-  ctx.beginPath();
-  ctx.arc(px, py, s * 0.7, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(x, y, size, size);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-  ctx.beginPath();
-  ctx.arc(px - s * 0.15, py - s * 0.15, s * 0.25, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(x + 1, y + 1, size * 0.4, size * 0.3);
 }

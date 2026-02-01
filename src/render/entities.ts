@@ -281,31 +281,9 @@ export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): v
 
     const indY = OVERLAY_SPRITE_SIZE / 2 + 4;
 
-    // Stun effects
+    // Stun — bebestunned sprite handles the visual, just skip to next state
     if (stunned) {
-      const coh = game.cheeses.find(c => c.stuckBaby === b && c.landed);
-      if (coh) {
-        const cx = bx + Math.cos(b.facing) * (OVERLAY_SPRITE_SIZE / 4);
-        const cy = by + Math.sin(b.facing) * (OVERLAY_SPRITE_SIZE / 4);
-        if (coh.isPacifier) drawToolShape(ctx, cx, cy, 'pacifier', 6, time);
-        else {
-          sketchyRect(ctx, cx - 5, cy - 5, 10, 10, {
-            fill: '#fde047', stroke: '#ca8a04', lineWidth: 1.5, jitterAmt: 0.4, grain: false,
-          });
-        }
-      }
-      // "CHEESED!" label
-      crayonText(ctx, 'CHEESED!', bx, by - indY, {
-        fill: '#fde047', font: 'bold 9px monospace', align: 'center', baseline: 'alphabetic',
-      });
-      // Stun stars
-      for (let i = 0; i < 3; i++) {
-        const a = time * 5 + i * 2.094;
-        const starR = OVERLAY_SPRITE_SIZE / 3;
-        crayonText(ctx, '*', bx + Math.cos(a) * starR, by + Math.sin(a) * starR - 4, {
-          fill: '#fde047', font: '8px sans-serif', align: 'center',
-        });
-      }
+      // no overlay needed, bebestunned sprite already shows cheese/stars
     } else if (b.distracted) {
       // Heart indicator
       crayonText(ctx, '\u2665', bx, by - indY, {

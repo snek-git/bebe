@@ -214,7 +214,7 @@ export function updateBabies(game: Game, dt: number): void {
       // Chase trigger: detection bar > 0 OR direct line of sight
       if (!b.chasing && (game.detection > 0 || (canBabySee(game, b) && !p.hiding))) {
         b.chasing = true;
-        b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
+        b.path = findPath(game.grid, b.x, b.y, p.x, p.y, game.doors);
         b.pathIndex = 0;
         b.pathTimer = BOSS_PATH_INTERVAL;
         b.pauseTimer = 0;
@@ -231,13 +231,13 @@ export function updateBabies(game: Game, dt: number): void {
         if (game.detection <= 0 && !canBabySee(game, b)) {
           b.chasing = false;
           // Path to last seen position instead of giving up
-          b.path = findPath(game.grid, b.x, b.y, b.lastSeenX, b.lastSeenY);
+          b.path = findPath(game.grid, b.x, b.y, b.lastSeenX, b.lastSeenY, game.doors);
           b.pathIndex = 0;
           b.pathTimer = BOSS_ROAM_INTERVAL;
           b.pauseTimer = 0;
         } else {
           if (b.pathTimer! <= 0) {
-            b.path = findPath(game.grid, b.x, b.y, p.x, p.y);
+            b.path = findPath(game.grid, b.x, b.y, p.x, p.y, game.doors);
             b.pathIndex = 0;
             b.pathTimer = BOSS_PATH_INTERVAL;
           }
@@ -303,7 +303,7 @@ export function updateBabies(game: Game, dt: number): void {
           let nextRoom = b.roamQueue!.shift()!;
           if (nextRoom === curRoom && b.roamQueue!.length > 0) nextRoom = b.roamQueue!.shift()!;
           const target = roomCenter(nextRoom);
-          const path = findPath(game.grid, b.x, b.y, target.x, target.y);
+          const path = findPath(game.grid, b.x, b.y, target.x, target.y, game.doors);
           if (path.length > 0) {
             b.path = path;
             b.pathIndex = 0;

@@ -1,6 +1,6 @@
 import { T, COLS, ROWS } from './config';
-import { isWalkable } from './map';
-import type { Point } from './types';
+import { isWalkable, isDoorBlocking } from './map';
+import type { Point, Door } from './types';
 
 interface Node {
   x: number;
@@ -30,7 +30,7 @@ function nearestWalkable(grid: number[][], tx: number, ty: number): { x: number;
   return null;
 }
 
-export function findPath(grid: number[][], startX: number, startY: number, goalX: number, goalY: number): Point[] {
+export function findPath(grid: number[][], startX: number, startY: number, goalX: number, goalY: number, doors?: Door[]): Point[] {
   let sx = Math.floor(startX / T);
   let sy = Math.floor(startY / T);
   let gx = Math.floor(goalX / T);
@@ -85,6 +85,7 @@ export function findPath(grid: number[][], startX: number, startY: number, goalX
       const nx = current.x + dx;
       const ny = current.y + dy;
       if (!isWalkable(grid, nx, ny)) continue;
+      if (doors && isDoorBlocking(doors, nx, ny)) continue;
       const nk = key(nx, ny);
       if (closed.has(nk)) continue;
 
