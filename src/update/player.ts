@@ -182,17 +182,19 @@ export function updatePlayer(game: Game, dt: number): void {
       }
     }
 
-    // Try door interaction
+    // Try door interaction (with cooldown)
     if (!acted) {
       for (const d of game.doors) {
-        if (dist(p, d) < T * 1.2) {
+        if (dist(p, d) < T * 1.2 && d.slamTimer <= 0) {
           if (d.state === 'closed') {
             d.state = 'open';
+            d.slamTimer = 0.5;
             acted = true;
             playClick();
             break;
           } else if (d.state === 'open') {
             d.state = 'closed';
+            d.slamTimer = 0.5;
             acted = true;
             playClick();
             break;
