@@ -308,7 +308,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Create Phaser sprites for all babies. */
   private createBabySprites(): void {
-    const SPRITE_SIZE = T * 2;
+    const SPRITE_SIZE = T * 2 * 0.8;
     this.babySprites = this.game_state.babies.map(b => {
       const key = b.type === 'stawler' ? 'str1' : 'baby1';
       const sprite = this.add.sprite(b.x, b.y, key);
