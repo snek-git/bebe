@@ -25,6 +25,9 @@ export class DrawObject extends Phaser.GameObjects.Extern {
 
     const ctx = renderer.currentContext;
     ctx.save();
+    // Reset transform — Phaser's camera matrix is already on the context,
+    // but our drawFn handles camera offset via game.camera / scrollFactor.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = this.alpha;
 
     // Apply camera scroll scaled by scrollFactor, then object position

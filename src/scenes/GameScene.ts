@@ -302,7 +302,7 @@ export class GameScene extends Phaser.Scene {
     }
     const map = this.make.tilemap({ data: mapData, tileWidth: T, tileHeight: T });
     const tileset = map.addTilesetImage('tilesheet', 'tilesheet', T, T, 0, 0, 1);
-    this.mapLayer = map.createLayer(0, tileset!)!;
+    this.mapLayer = map.createLayer(0, tileset!)! as Phaser.Tilemaps.TilemapLayer;
     this.mapLayer.setDepth(DEPTH.MAP);
   }
 
