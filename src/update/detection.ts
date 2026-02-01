@@ -1,8 +1,7 @@
 import {
-  DETECTION_RATE, DETECTION_DECAY, BABY_RADIUS, PLAYER_RADIUS,
+  DETECTION_RATE, DETECTION_DECAY,
   SNEAKER_DETECTION_MULT,
 } from '../config';
-import { dist } from '../utils';
 import { canBabySee } from './babies';
 import type { Game } from '../types';
 
@@ -13,14 +12,8 @@ export function updateDetection(game: Game, dt: number): void {
   for (const b of game.babies) {
     if (b.distracted) continue;
     if (b.type === 'boss') continue;
+    if (b.type === 'stawler') continue;
     if (canBabySee(game, b) && !p.hiding) {
-      seen = true;
-      break;
-    }
-    if (b.type === 'stawler' && b.chasing && !b.stunTimer && dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 8) {
-      p.hiding = false;
-      p.stamina = 0;
-      p.staminaExhausted = true;
       seen = true;
       break;
     }

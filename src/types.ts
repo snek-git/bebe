@@ -138,6 +138,9 @@ export interface Baby {
   lastSeenY?: number;
   doorPushTimer?: number;
   doorPushTarget?: Door;
+  pushDirX?: number;
+  pushDirY?: number;
+  chargeDist?: number;
 }
 
 export interface Loot {

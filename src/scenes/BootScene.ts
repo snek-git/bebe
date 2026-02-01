@@ -74,23 +74,6 @@ export class BootScene extends Phaser.Scene {
       if (mask & 32)  tsCtx.fillRect(x + HALF, y + HALF, HALF, HALF);
       if (mask & 64)  tsCtx.fillRect(x, y + HALF, HALF, HALF);
       if (mask & 128) tsCtx.fillRect(x, y, HALF, HALF);
-      // Rough grain texture
-      tsCtx.save();
-      tsCtx.beginPath();
-      tsCtx.rect(x, y, T, T);
-      tsCtx.clip();
-      tsCtx.globalAlpha = 0.08;
-      tsCtx.strokeStyle = '#a0b8cc';
-      tsCtx.lineWidth = 1;
-      const step = 5;
-      for (let d = -T; d < T; d += step) {
-        const j = () => (Math.sin(d * 73.1 + mask * 37) * 43758.5453 % 1 - 0.5) * 2;
-        tsCtx.beginPath();
-        tsCtx.moveTo(x + d + j(), y + j());
-        tsCtx.lineTo(x + d + T + j(), y + T + j());
-        tsCtx.stroke();
-      }
-      tsCtx.restore();
     }
 
     // Tile 258: Furniture (from loaded PNG)

@@ -1,6 +1,6 @@
 import {
   BABY_RADIUS, PLAYER_RADIUS, T,
-  STAWLER_MAX_SPEED, STAWLER_FRICTION, STAWLER_PUSH_THRESHOLD, STAWLER_APPROACH_RANGE,
+  STAWLER_MAX_SPEED, STAWLER_APPROACH_RANGE,
   BOSS_SPEED, BOSS_CHASE_SPEED, BOSS_PATH_INTERVAL, BOSS_ROAM_INTERVAL, BOSS_ROOM_DWELL_MAX,
   VISION_RANGE, VISION_ANGLE, DISTRACTION_RANGE, TV_RANGE, ROOM_DEFS,
   DOOR_PUSH_TIME,
@@ -110,24 +110,38 @@ function moveStawlerToward(
   const d = Math.sqrt(dx * dx + dy * dy);
   if (d < 14) {
     b.vel = 0;
+    b.chargeDist = 0;
     return;
   }
 
-  // Friction: exponential drag (always coasting to a stop)
-  b.vel *= Math.exp(-STAWLER_FRICTION * dt);
-  if (b.vel < 1) b.vel = 0;
+  if (b.chargeDist == null) b.chargeDist = 0;
 
-  // Push! Burst to full speed when slow enough and far enough from target
-  const coastDist = b.vel / STAWLER_FRICTION;
-  if (b.vel < STAWLER_PUSH_THRESHOLD && d > coastDist + 16) {
+  // Negative chargeDist = pause timer between bumps
+  if (b.chargeDist < 0) {
+    b.chargeDist += dt;
+    b.vel = 0;
+    return;
+  }
+
+  // Start a new bump: lock direction, set distance
+  if (b.vel === 0) {
+    b.pushDirX = dx / d;
+    b.pushDirY = dy / d;
+    b.chargeDist = T * (1.5 + Math.random() * 0.5); // 1.5–2 tiles
     b.vel = pushSpeed;
   }
 
-  if (b.vel > 0) {
-    const nx = dx / d, ny = dy / d;
-    b.x += nx * b.vel * dt;
-    b.y += ny * b.vel * dt;
-    resolveWalls(grid, b);
+  // Bumping forward in locked direction
+  const move = b.vel * dt;
+  b.x += b.pushDirX! * move;
+  b.y += b.pushDirY! * move;
+  resolveWalls(grid, b);
+  b.chargeDist -= move;
+
+  // Bump done — full stop, brief pause
+  if (b.chargeDist <= 0) {
+    b.vel = 0;
+    b.chargeDist = -(0.3 + Math.random() * 0.2); // 0.3–0.5s pause
   }
 }
 
@@ -139,7 +153,7 @@ export function updateBabies(game: Game, dt: number): void {
 
     if (b.stunTimer > 0) {
       b.stunTimer -= dt;
-      if (b.type === 'stawler') { b.chasing = false; b.vel = 0; }
+      if (b.type === 'stawler') { b.chasing = false; b.vel = 0; b.chargeDist = 0; }
       if (b.type === 'boss') { b.chasing = false; b.path = []; b.pathIndex = 0; }
       b.distracted = false;
       continue;
@@ -183,15 +197,22 @@ export function updateBabies(game: Game, dt: number): void {
     }
     b.distracted = false;
 
+    // Stawler contact = instant death (unless player is hiding)
+    if (b.type === 'stawler' && !p.hiding) {
+      if (dist(b, p) < BABY_RADIUS + PLAYER_RADIUS + 4) {
+        game.state = 'gameover';
+        game.gameOverTimer = 0;
+        continue;
+      }
+    }
+
+    // Stawler chase: push/coast toward player when visible
     if (b.type === 'stawler') {
       const canSee = canBabySeePeeker(game, b);
-      if (canSee && p.hiding) {
+      if (canSee && !p.hiding) {
         b.chasing = true;
         const dx = p.x - b.x, dy = p.y - b.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d > BABY_RADIUS + PLAYER_RADIUS + 2) {
-          moveStawlerToward(b, p.x, p.y, STAWLER_MAX_SPEED, dt, game.grid);
-        }
+        moveStawlerToward(b, p.x, p.y, STAWLER_MAX_SPEED, dt, game.grid);
         b.facing = rotateTowards(b.facing, Math.atan2(dy, dx), turn);
         b.pauseTimer = 0;
         continue;
@@ -389,20 +410,27 @@ export function updateBabies(game: Game, dt: number): void {
     }
 
     if (d < arrivalDist) {
-      if (b.type === 'stawler') b.vel = 0;
-      b.pauseTimer += dt;
-      const nw = b.waypoints[(b.wpIndex + 1) % b.waypoints.length];
-      const toN = Math.atan2(nw.y - b.y, nw.x - b.x);
-      const ph = b.pauseTimer / b.pauseTime;
-      let target = toN;
-      if (ph < 0.35) target = toN;
-      else if (ph < 0.6) target = toN + Math.PI / 2;
-      else if (ph < 0.85) target = toN - Math.PI / 2;
-      else target = toN;
-      b.facing = rotateTowards(b.facing, target, turn);
-      if (b.pauseTimer >= b.pauseTime) {
+      if (b.type === 'stawler') {
+        // Stawlers skip the long pause — immediately advance and keep bumping
+        b.vel = 0;
+        b.chargeDist = 0;
         b.wpIndex = (b.wpIndex + 1) % b.waypoints.length;
         b.pauseTimer = 0;
+      } else {
+        b.pauseTimer += dt;
+        const nw = b.waypoints[(b.wpIndex + 1) % b.waypoints.length];
+        const toN = Math.atan2(nw.y - b.y, nw.x - b.x);
+        const ph = b.pauseTimer / b.pauseTime;
+        let target = toN;
+        if (ph < 0.35) target = toN;
+        else if (ph < 0.6) target = toN + Math.PI / 2;
+        else if (ph < 0.85) target = toN - Math.PI / 2;
+        else target = toN;
+        b.facing = rotateTowards(b.facing, target, turn);
+        if (b.pauseTimer >= b.pauseTime) {
+          b.wpIndex = (b.wpIndex + 1) % b.waypoints.length;
+          b.pauseTimer = 0;
+        }
       }
     } else {
       if (b.type === 'stawler') {
