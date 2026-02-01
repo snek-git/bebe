@@ -2,7 +2,7 @@ import {
   CHEESE_SPEED, CHEESE_STUN_TIME, PACIFIER_CALM_TIME,
   BABY_RADIUS, T,
 } from '../config';
-import { isWall } from '../map';
+import { isSolid } from '../map';
 import { dist } from '../utils';
 import { playCheeseHit } from '../audio';
 import type { Game } from '../types';
@@ -27,7 +27,7 @@ export function updateProjectiles(game: Game, dt: number): void {
 
       const stunTime = c.isPacifier ? PACIFIER_CALM_TIME : CHEESE_STUN_TIME;
 
-      if (isWall(game.grid, Math.floor(c.x / T), Math.floor(c.y / T))) {
+      if (isSolid(game.grid, Math.floor(c.x / T), Math.floor(c.y / T))) {
         c.x = px;
         c.y = py;
         c.landed = true;

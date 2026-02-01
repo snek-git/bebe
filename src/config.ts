@@ -7,6 +7,7 @@ export {
 } from './level-data';
 
 export const T = 32;
+export const TILESHEET_COLS = 16;
 export const VIEW_W = 800;
 export const VIEW_H = 576;
 
@@ -20,7 +21,7 @@ export const DETECTION_RATE = 100;
 export const DETECTION_DECAY = 150;
 export const LOOT_TIME = 0.8;
 export const SEARCH_TIME = 1.0;
-export const CHEESE_SPEED = 350;
+export const CHEESE_SPEED = 600;
 export const CHEESE_STUN_TIME = 3.0;
 export const CHEESE_COOLDOWN = 3.0;
 export const STAMINA_MAX = 3.0;

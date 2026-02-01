@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  VIEW_W, VIEW_H, CHEESE_COOLDOWN, TV_DURATION,
+  VIEW_W, VIEW_H, TV_DURATION,
   DISTRACTION_DURATION, T, COLS, ROWS,
 } from '../config';
 import { initGame } from '../state';
@@ -445,9 +445,8 @@ export class GameScene extends Phaser.Scene {
       const worldX = pointer.x + game.camera.x;
       const worldY = pointer.y + game.camera.y;
       const p = game.player;
-      if (p.cheese > 0 && game.cheeseCooldown <= 0) {
+      if (p.cheese > 0) {
         p.cheese--;
-        game.cheeseCooldown = CHEESE_COOLDOWN;
         game.cheeses.push({
           x: p.x, y: p.y,
           targetX: worldX, targetY: worldY,
@@ -557,8 +556,6 @@ export class GameScene extends Phaser.Scene {
       performance.now() - game.qDownTime >= 250) {
       game.wheelOpen = true;
     }
-
-    game.cheeseCooldown = Math.max(0, game.cheeseCooldown - dt);
 
     // SAME UPDATE ORDER — critical
     updatePlayer(game, dt);

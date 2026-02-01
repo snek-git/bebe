@@ -32,7 +32,6 @@ export function loadSpritesViaPhaser(scene: Phaser.Scene): void {
   // Tile textures
   scene.load.image('tile_floor0', './sprites/tiles/floor0.png');
   scene.load.image('tile_floor1', './sprites/tiles/floor1.png');
-  scene.load.image('tile_wall', './sprites/tiles/wall.png');
   scene.load.image('tile_furn', './sprites/tiles/furniture.png');
 }
 
