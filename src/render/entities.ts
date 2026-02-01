@@ -256,7 +256,7 @@ export function renderCheeses(ctx: CanvasRenderingContext2D, game: Game): void {
   }
 }
 
-const OVERLAY_SPRITE_SIZE = T * 2;
+const OVERLAY_SPRITE_SIZE = T * 2 * 0.8;
 
 export function renderBabyOverlays(ctx: CanvasRenderingContext2D, game: Game): void {
   const time = game.time;
