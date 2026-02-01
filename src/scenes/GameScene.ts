@@ -275,17 +275,33 @@ export class GameScene extends Phaser.Scene {
           // Floor: checkerboard variants (tile indices 1 and 2, firstgid=1)
           row.push((x + y) % 2 + 1);
         } else if (v === 1) {
-          // Wall (tile index 3)
-          row.push(3);
+          // Wall: edge-aware variant (tile indices 3-258, firstgid=1)
+          // Cardinal: bit0=top, bit1=right, bit2=bottom, bit3=left
+          // Corners:  bit4=TR, bit5=BR, bit6=BL, bit7=TL
+          const exp = (r: number, c: number) =>
+            r >= 0 && r < ROWS && c >= 0 && c < COLS && grid[r][c] !== 1;
+          let mask = 0;
+          const top = exp(y - 1, x), right = exp(y, x + 1),
+                bot = exp(y + 1, x), left  = exp(y, x - 1);
+          if (top)   mask |= 1;
+          if (right) mask |= 2;
+          if (bot)   mask |= 4;
+          if (left)  mask |= 8;
+          // Inner corners: diagonal exposed but both adjacent cardinals are walls
+          if (!top && !right && exp(y - 1, x + 1)) mask |= 16;
+          if (!right && !bot && exp(y + 1, x + 1)) mask |= 32;
+          if (!bot && !left && exp(y + 1, x - 1))  mask |= 64;
+          if (!left && !top && exp(y - 1, x - 1))  mask |= 128;
+          row.push(3 + mask);
         } else {
-          // Furniture (tile index 4)
-          row.push(4);
+          // Furniture (tile index 259)
+          row.push(259);
         }
       }
       mapData.push(row);
     }
     const map = this.make.tilemap({ data: mapData, tileWidth: T, tileHeight: T });
-    const tileset = map.addTilesetImage('tilesheet');
+    const tileset = map.addTilesetImage('tilesheet', 'tilesheet', T, T, 0, 0, 1);
     this.mapLayer = map.createLayer(0, tileset!)!;
     this.mapLayer.setDepth(DEPTH.MAP);
   }

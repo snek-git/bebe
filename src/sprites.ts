@@ -12,7 +12,7 @@ const bossCanvases: HTMLCanvasElement[] = [];
 
 // ---- Tile sprites ----
 
-const floorImages: HTMLImageElement[] = [];
+const floorCanvases: HTMLCanvasElement[] = [];
 let floorsLoaded = 0;
 
 export function loadSpritesViaPhaser(scene: Phaser.Scene): void {
@@ -51,14 +51,14 @@ export function generateFloorTiles(): void {
     c.width = S; c.height = S;
     const g = c.getContext('2d')!;
 
-    // Base floor color — two subtly different dark tones for checkerboard
-    const base = v === 0 ? '#1e1e2e' : '#1c1c2a';
+    // Base floor color — two subtly different cool tones for bank-style checkerboard
+    const base = v === 0 ? '#c4dce1' : '#cde5e9';
     g.fillStyle = base;
     g.fillRect(0, 0, S, S);
 
     // Subtle grain texture for hand-drawn feel
     g.globalAlpha = 0.04;
-    g.strokeStyle = '#ffffff';
+    g.strokeStyle = '#9abfc6';
     g.lineWidth = 1;
     const step = 6;
     for (let d = -S; d < S; d += step) {
@@ -70,10 +70,7 @@ export function generateFloorTiles(): void {
     }
     g.globalAlpha = 1;
 
-    // Convert canvas to an img element for drawImage compatibility
-    const img = new Image();
-    img.src = c.toDataURL();
-    floorImages.push(img);
+    floorCanvases.push(c);
     floorsLoaded++;
   }
 }
@@ -98,8 +95,8 @@ export function tileSpritesReady(): boolean {
   return floorsLoaded >= 2;
 }
 
-export function getFloorSprite(variant: number): HTMLImageElement {
-  return floorImages[variant % 2];
+export function getFloorSprite(variant: number): HTMLCanvasElement {
+  return floorCanvases[variant % 2];
 }
 
 export function generateBossSprites(): void {
