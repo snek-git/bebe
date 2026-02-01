@@ -2,6 +2,7 @@ import {
   PLAYER_SPEED, SPRINT_SPEED, STAMINA_MAX, STAMINA_RECHARGE, SPRINT_DRAIN, LOOT_TIME,
   SEARCH_TIME, T, SPRINT_NOISE_RANGE, SLAM_NOISE_RANGE,
   DOOR_SLAM_STUN, NOISE_DURATION, BABY_RADIUS, SUNGLASSES_DRAIN_MULT,
+  ROOM_DEFS,
 } from '../config';
 import { resolveWalls, dist } from '../utils';
 import { isDown } from '../input';
@@ -19,12 +20,29 @@ export function updatePlayer(game: Game, dt: number): void {
     p.vx = 0;
     p.vy = 0;
     p.stamina = Math.max(0, p.stamina - dt * drainMult);
-    // Face the closest baby
-    let closest = Infinity;
+    // Face the closest baby — prioritize babies in the same room
+    const ptx = Math.floor(p.x / T), pty = Math.floor(p.y / T);
+    let playerRoom: string | null = null;
+    for (const r of ROOM_DEFS) {
+      if (ptx >= r.x && ptx < r.x + r.w && pty >= r.y && pty < r.y + r.h) {
+        playerRoom = r.id;
+        break;
+      }
+    }
+    let bestDist = Infinity;
+    let bestSameRoom = false;
     for (const b of game.babies) {
       const d = dist(p, b);
-      if (d < closest) {
-        closest = d;
+      const btx = Math.floor(b.x / T), bty = Math.floor(b.y / T);
+      let sameRoom = false;
+      if (playerRoom) {
+        const r = ROOM_DEFS.find(r => r.id === playerRoom)!;
+        sameRoom = btx >= r.x && btx < r.x + r.w && bty >= r.y && bty < r.y + r.h;
+      }
+      // Same-room babies always beat other-room babies
+      if ((sameRoom && !bestSameRoom) || (sameRoom === bestSameRoom && d < bestDist)) {
+        bestDist = d;
+        bestSameRoom = sameRoom;
         p.facing = Math.atan2(b.y - p.y, b.x - p.x);
       }
     }
