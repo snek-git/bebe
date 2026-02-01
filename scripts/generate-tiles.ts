@@ -129,29 +129,87 @@ function generateWall(): Buffer {
   const c = createCanvas(S, S);
   const ctx = c.getContext('2d') as unknown as CanvasRenderingContext2D;
 
-  // Base
-  ctx.fillStyle = '#2a3a5c';
+  // Base concrete gray fill
+  ctx.fillStyle = '#6b6b6b';
   ctx.fillRect(0, 0, S, S);
 
-  // Grain overlay
-  crayonGrain(ctx, 0, 0, S, S, 0.06);
+  // Brick grid parameters (at 128px scale)
+  const brickW = 32;  // quarter width
+  const brickH = 16;  // eighth height
+  const mortarW = 2;
+  const rows = Math.ceil(S / brickH);
+  const colsPerRow = Math.ceil(S / brickW);
 
-  // Subtle darker edge borders for masonry feel
-  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, S - 2, S - 2);
+  _seed = 4242;
 
-  // Faint horizontal mortar lines
-  _seed = 7777;
-  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-  ctx.lineWidth = 1;
-  const mortarSpacing = 16;
-  for (let y = mortarSpacing; y < S; y += mortarSpacing) {
+  // Draw bricks with alternating row offset
+  for (let row = 0; row < rows; row++) {
+    const by = row * brickH;
+    const offset = (row % 2 === 1) ? brickW / 2 : 0;
+
+    for (let col = -1; col <= colsPerRow; col++) {
+      const bx = col * brickW + offset;
+
+      // Per-brick color variation: randomize lightness slightly around base gray
+      const variation = Math.floor(sjitter(20));
+      const base = 107 + variation; // 107 = 0x6b
+      const r = Math.max(0, Math.min(255, base + Math.floor(sjitter(8))));
+      const g = Math.max(0, Math.min(255, base + Math.floor(sjitter(6))));
+      const b = Math.max(0, Math.min(255, base + Math.floor(sjitter(8))));
+
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(
+        bx + mortarW / 2,
+        by + mortarW / 2,
+        brickW - mortarW,
+        brickH - mortarW,
+      );
+    }
+  }
+
+  // Mortar lines — darker gray
+  ctx.strokeStyle = '#4a4a4a';
+  ctx.lineWidth = mortarW;
+
+  // Horizontal mortar
+  for (let row = 0; row <= rows; row++) {
+    const my = row * brickH;
     ctx.beginPath();
-    ctx.moveTo(0 + sjitter(1), y + sjitter(0.5));
-    ctx.lineTo(S + sjitter(1), y + sjitter(0.5));
+    ctx.moveTo(0, my + sjitter(0.3));
+    ctx.lineTo(S, my + sjitter(0.3));
     ctx.stroke();
   }
+
+  // Vertical mortar (offset per row)
+  for (let row = 0; row < rows; row++) {
+    const by = row * brickH;
+    const offset = (row % 2 === 1) ? brickW / 2 : 0;
+    for (let col = 0; col <= colsPerRow; col++) {
+      const mx = col * brickW + offset;
+      ctx.beginPath();
+      ctx.moveTo(mx + sjitter(0.3), by);
+      ctx.lineTo(mx + sjitter(0.3), by + brickH);
+      ctx.stroke();
+    }
+  }
+
+  // Fine speckle noise for concrete texture
+  _seed = 8888;
+  for (let i = 0; i < 200; i++) {
+    const sx = srand() * S;
+    const sy = srand() * S;
+    const sr = srand() * 1.2 + 0.3;
+    const alpha = srand() * 0.08 + 0.02;
+    ctx.fillStyle = srand() > 0.5
+      ? `rgba(0,0,0,${alpha})`
+      : `rgba(255,255,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Crayon grain overlay for hand-drawn feel
+  crayonGrain(ctx, 0, 0, S, S, 0.05);
 
   return c.toBuffer('image/png');
 }
