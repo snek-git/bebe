@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
-import { loadSpritesViaPhaser, initSpritesFromPhaser, generateBossSprites, generateFloorTiles, getBossFrame, getFloorSprite } from '../sprites';
-import { sketchyRect } from '../render/sketchy';
+import { loadSpritesViaPhaser, initSpritesFromPhaser } from '../sprites';
 import { T } from '../config';
 
 export class BootScene extends Phaser.Scene {
@@ -20,10 +19,6 @@ export class BootScene extends Phaser.Scene {
     // Extract loaded images into sprite module for ctx.drawImage usage
     initSpritesFromPhaser(this);
 
-    // Generate procedural sprites
-    generateBossSprites();
-    generateFloorTiles();
-
     // Create tilesheet: floor0, floor1, 256 wall variants, furniture
     // 8-bit mask: bits 0-3 = cardinal edges, bits 4-7 = inner corners
     const WALL_VARIANTS = 256;
@@ -33,9 +28,14 @@ export class BootScene extends Phaser.Scene {
     tilesheet.height = T;
     const tsCtx = tilesheet.getContext('2d')!;
 
+    // Load floor and furniture textures from PNGs
+    const floor0 = this.textures.get('tile_floor0').getSourceImage() as CanvasImageSource;
+    const floor1 = this.textures.get('tile_floor1').getSourceImage() as CanvasImageSource;
+    const furn = this.textures.get('tile_furn').getSourceImage() as CanvasImageSource;
+
     // Tile 0-1: Floor variants
-    tsCtx.drawImage(getFloorSprite(0), 0, 0, 128, 128, 0, 0, T, T);
-    tsCtx.drawImage(getFloorSprite(1), 0, 0, 128, 128, T, 0, T, T);
+    tsCtx.drawImage(floor0, 0, 0, 128, 128, 0, 0, T, T);
+    tsCtx.drawImage(floor1, 0, 0, 128, 128, T, 0, T, T);
 
     // Tiles 2-257: Wall variants (256 edge+corner combinations)
     // Cardinal: bit0=top, bit1=right, bit2=bottom, bit3=left
@@ -79,17 +79,10 @@ export class BootScene extends Phaser.Scene {
       tsCtx.restore();
     }
 
-    // Tile 258: Furniture
-    sketchyRect(tsCtx, (2 + WALL_VARIANTS) * T, 0, T, T, {
-      fill: '#3d2e1c', stroke: 'rgba(90,65,40,0.5)', lineWidth: 2, jitterAmt: 0.5,
-    });
+    // Tile 258: Furniture (from loaded PNG)
+    tsCtx.drawImage(furn, 0, 0, 128, 128, (2 + WALL_VARIANTS) * T, 0, T, T);
 
     this.textures.addCanvas('tilesheet', tilesheet);
-
-    // Register boss canvas textures for Phaser sprites
-    for (let i = 0; i < 4; i++) {
-      this.textures.addCanvas(`boss${i + 1}`, getBossFrame(i));
-    }
 
     // Transition to title screen
     this.scene.start('TitleScene');

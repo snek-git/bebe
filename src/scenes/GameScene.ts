@@ -310,7 +310,7 @@ export class GameScene extends Phaser.Scene {
   private createBabySprites(): void {
     const SPRITE_SIZE = T * 2;
     this.babySprites = this.game_state.babies.map(b => {
-      const key = b.type === 'boss' ? 'boss1' : b.type === 'stawler' ? 'str1' : 'baby1';
+      const key = b.type === 'stawler' ? 'str1' : 'baby1';
       const sprite = this.add.sprite(b.x, b.y, key);
       sprite.setDisplaySize(SPRITE_SIZE, SPRITE_SIZE);
       sprite.setDepth(DEPTH.BABIES);
@@ -361,7 +361,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Set texture by type + frame
-      const prefix = b.type === 'boss' ? 'boss' : b.type === 'stawler' ? 'str' : 'baby';
+      const prefix = b.type === 'stawler' ? 'str' : 'baby';
       sprite.setTexture(`${prefix}${frameIndex + 1}`);
     }
   }

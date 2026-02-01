@@ -6,7 +6,7 @@ import {
 import { dist } from '../utils';
 import { canBabySee } from '../update/babies';
 import { drawToolShape, drawLootShape, drawCheeseShape } from './shapes';
-import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame, bossSpritesReady, getBossFrame } from '../sprites';
+import { babySpritesReady, getBabyFrame, stawlerSpritesReady, getStawlerFrame } from '../sprites';
 import { sketchyRect, crayonCircle, crayonText, crayonGrain } from './sketchy';
 import type { Game } from '../types';
 
@@ -321,8 +321,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
 
     // Body
     const useStawlerSprites = b.type === 'stawler' && stawlerSpritesReady();
-    const useBossSprites = b.type === 'boss' && bossSpritesReady();
-    if (useSprites || useStawlerSprites || useBossSprites) {
+    if (useSprites || useStawlerSprites) {
       const moving = b.pauseTimer <= 0 && !stunned;
       let frameIndex: number;
       if (moving) {
@@ -334,8 +333,7 @@ export function renderBabies(ctx: CanvasRenderingContext2D, game: Game): void {
           ? (tick === 0 ? 3 : 2)
           : (tick === 0 ? 1 : 0);
       }
-      const img = useBossSprites ? getBossFrame(frameIndex)
-        : useStawlerSprites ? getStawlerFrame(frameIndex)
+      const img = useStawlerSprites ? getStawlerFrame(frameIndex)
         : getBabyFrame(frameIndex);
       const half = SPRITE_SIZE / 2;
 

@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-tiles": "npx tsx scripts/generate-tiles.ts"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^0.1.89",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
   },
