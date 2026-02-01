@@ -19,6 +19,15 @@ export function updatePlayer(game: Game, dt: number): void {
     p.vx = 0;
     p.vy = 0;
     p.stamina = Math.max(0, p.stamina - dt * drainMult);
+    // Face the closest baby
+    let closest = Infinity;
+    for (const b of game.babies) {
+      const d = dist(p, b);
+      if (d < closest) {
+        closest = d;
+        p.facing = Math.atan2(b.y - p.y, b.x - p.x);
+      }
+    }
     if (p.stamina <= 0) {
       p.staminaExhausted = true;
       p.hiding = false;
